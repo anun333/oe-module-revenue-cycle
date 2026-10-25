@@ -104,7 +104,10 @@ final class ChargeChecksTest extends TestCase
         $a = $this->checks->visit($this->visit(lines: [$this->line(1, '99214', '25')]), $this->today)[0];
         $b = $this->checks->visit($this->visit(lines: [$this->line(1, '99214', '25')]), $this->today->modify('+5 days'))[0];
         self::assertSame($a->key(), $b->key());
-        self::assertStringStartsWith('revcycle:7:501-modifier_25_alone-', $a->key());
+        self::assertMatchesRegularExpression('/^revcycle:7:[1-9]\\d{17}$/D', $a->key(), "the Staff Worklist's key pattern: a number for the ref");
+        $other = $this->checks->visit($this->visit(lines: [$this->line(1, '99215', '25')]), $this->today)[0];
+        self::assertNotSame($a->key(), (new \OpenHealthcare\RevenueCycle\Domain\Flag(Flag::NO_DIAGNOSIS, 501, 7, 'line:1'))->key(), 'another kind on the same line is another flag');
+        self::assertSame($a->key(), $other->key(), 'the same finding on the same line, whatever the code, is the same flag');
         self::assertSame([6, Flag::OVER], [$a->check(), $a->direction()]);
         self::assertSame([1, Flag::MISSED], [Flag::KINDS[Flag::SEEN_NOT_BILLED][0], Flag::KINDS[Flag::SEEN_NOT_BILLED][1]]);
     }

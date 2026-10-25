@@ -23,6 +23,7 @@ final class Flag
     public const QUALITY = 'quality';
 
     public const SEEN_NOT_BILLED = 'seen_not_billed';
+    public const SEEN_NO_VISIT = 'seen_no_visit';
     public const VACCINE_NO_PRODUCT = 'vaccine_no_product';
     public const VACCINE_NO_ADMINISTRATION = 'vaccine_no_administration';
     public const TEST_NOT_BILLED = 'test_not_billed';
@@ -35,7 +36,7 @@ final class Flag
 
     /** Each kind's check number in the plan, and its direction. */
     public const KINDS = [
-        self::SEEN_NOT_BILLED => [1, self::MISSED], self::VACCINE_NO_PRODUCT => [2, self::MISSED],
+        self::SEEN_NOT_BILLED => [1, self::MISSED], self::SEEN_NO_VISIT => [1, self::MISSED], self::VACCINE_NO_PRODUCT => [2, self::MISSED],
         self::VACCINE_NO_ADMINISTRATION => [2, self::MISSED], self::TEST_NOT_BILLED => [3, self::MISSED],
         self::VACCINE_BILLED_NONE_GIVEN => [4, self::OVER], self::TEST_BILLED_NO_RESULT => [4, self::OVER],
         self::CHARGES_NO_DOCUMENTATION => [4, self::OVER], self::SAME_CODE_TWICE => [5, self::OVER],
@@ -70,9 +71,21 @@ final class Flag
         return self::KINDS[$this->kind][1];
     }
 
-    /** Stable across runs: the same finding on the same visit is the same flag. */
+    public const SOURCE = 'revcycle';
+
+    /**
+     * The flag's ref in Staff Worklist keys, which take a number: 18 digits from a hash of the visit, the kind and
+     * what it's about, so the same finding on the same visit keeps its key across runs (revenue_cycle_flag maps it back).
+     */
+    public function ref(): string
+    {
+        $n = (int)(hexdec(substr(hash('sha256', "{$this->encounter}|{$this->kind}|{$this->subject}"), 0, 15)) % 900000000000000000);
+        return (string)(100000000000000000 + $n);
+    }
+
+    /** source:pid:ref, as the Staff Worklist keys an item. */
     public function key(): string
     {
-        return "revcycle:{$this->pid}:{$this->encounter}-{$this->kind}-" . substr(hash('sha256', $this->subject), 0, 12);
+        return self::SOURCE . ":{$this->pid}:" . $this->ref();
     }
 }

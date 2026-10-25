@@ -1,9 +1,15 @@
 {
     "name": "anun333/oe-module-revenue-cycle",
-    "description": "Revenue Cycle for OpenEMR.",
+    "description": "Revenue Cycle for OpenEMR: a charge review before claims go out, both directions (missed charges and charges the record doesn't support), as a Staff Worklist tab, with a look-back report.",
     "type": "openemr-module",
     "license": "GPL-3.0-or-later",
-    "keywords": ["openemr", "openemr-module"],
+    "keywords": [
+        "openemr",
+        "openemr-module",
+        "billing",
+        "charge-review",
+        "revenue-cycle"
+    ],
     "homepage": "https://github.com/anun333/oe-module-revenue-cycle",
     "require": {
         "php": ">=8.2",
@@ -33,7 +39,7 @@
         "openhealthcare": {
             "footprint-not-covered": [
                 "Whether the permission checks above behave correctly for restricted users. They aren't yet checked end to end with a restricted login.",
-                "Whether what the module does is right for a clinic. The unit tests in `tests/` cover its rules; rewrite this note once there is more to say."
+                "Whether the checks fit a clinic's billing: they're checked on 8.4.1 and master with planted visits, one per check plus the visits that must stay quiet, not on a clinic's own records."
             ]
         }
     }

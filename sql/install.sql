@@ -15,3 +15,23 @@ CREATE TABLE `revenue_cycle_setting` (
     PRIMARY KEY (`name`)
 ) ENGINE=InnoDB COMMENT='Revenue Cycle: settings';
 #EndIf
+
+-- Each flag a check has found, so the report can count both directions: accepted (the condition cleared, by a fee
+-- sheet change) and dismissed (in the Staff Worklist, with its reason). Keyed as the Worklist keys the item.
+#IfNotTable revenue_cycle_flag
+CREATE TABLE `revenue_cycle_flag` (
+    `item_key` VARCHAR(64) NOT NULL COMMENT 'revcycle:<pid>:<ref>, the Staff Worklist item key',
+    `pid` BIGINT(20) NOT NULL,
+    `encounter` BIGINT(20) NOT NULL COMMENT '0 for an appointment seen with no visit',
+    `kind` VARCHAR(32) NOT NULL,
+    `check_no` TINYINT NOT NULL,
+    `direction` VARCHAR(8) NOT NULL COMMENT 'missed, over or quality',
+    `subject` VARCHAR(191) NOT NULL,
+    `first_seen` DATETIME NOT NULL,
+    `last_seen` DATETIME NOT NULL,
+    `cleared_at` DATETIME DEFAULT NULL COMMENT 'when a check no longer found it',
+    PRIMARY KEY (`item_key`),
+    KEY `idx_pid` (`pid`),
+    KEY `idx_encounter` (`encounter`)
+) ENGINE=InnoDB COMMENT='Revenue Cycle: each charge check finding, and when it cleared';
+#EndIf
