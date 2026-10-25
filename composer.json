@@ -1,0 +1,40 @@
+{
+    "name": "anun333/oe-module-revenue-cycle",
+    "description": "Revenue Cycle for OpenEMR.",
+    "type": "openemr-module",
+    "license": "GPL-3.0-or-later",
+    "keywords": ["openemr", "openemr-module"],
+    "homepage": "https://github.com/anun333/oe-module-revenue-cycle",
+    "require": {
+        "php": ">=8.2",
+        "anun333/openhealthcare-common": "^1.1",
+        "openemr/oe-module-installer-plugin": "^0.1.5"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "OpenHealthcare\\RevenueCycle\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "OpenHealthcare\\RevenueCycle\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "openemr/oe-module-installer-plugin": true
+        },
+        "sort-packages": true
+    },
+    "extra": {
+        "openhealthcare": {
+            "footprint-not-covered": [
+                "Whether the permission checks above behave correctly for restricted users. They aren't yet checked end to end with a restricted login.",
+                "Whether what the module does is right for a clinic. The unit tests in `tests/` cover its rules; rewrite this note once there is more to say."
+            ]
+        }
+    }
+}

@@ -1,0 +1,29 @@
+{
+ "about": "The few codes Revenue Cycle's rules name. CPT numbers only, with labels in our own words, never AMA's descriptions (Seth, 2026-10-24): the clinic's own code table supplies the names it shows. HCPCS Level II codes are CMS's public use file. Each list is a site setting's default; the site can change it on the settings page.",
+ "terms": "CPT is a registered trademark of the American Medical Association. No CPT descriptor is reproduced here; the labels are ours (CC0). HCPCS Level II codes are published by CMS.",
+ "vaccineAdministration": {
+  "note": "Lines that bill giving a vaccine, as opposed to the vaccine product itself (check 2's administration line).",
+  "codes": [
+   {"type": "CPT4", "code": "90460", "label": "giving a vaccine with counseling, a child, first part"},
+   {"type": "CPT4", "code": "90461", "label": "giving a vaccine with counseling, a child, each further part"},
+   {"type": "CPT4", "code": "90471", "label": "giving one vaccine by injection"},
+   {"type": "CPT4", "code": "90472", "label": "giving each further vaccine by injection"},
+   {"type": "CPT4", "code": "90473", "label": "giving one vaccine by mouth or nose"},
+   {"type": "CPT4", "code": "90474", "label": "giving each further vaccine by mouth or nose"},
+   {"type": "CPT4", "code": "90480", "label": "giving a COVID-19 vaccine"},
+   {"type": "HCPCS", "code": "G0008", "label": "giving a flu vaccine (Medicare)"},
+   {"type": "HCPCS", "code": "G0009", "label": "giving a pneumococcal vaccine (Medicare)"},
+   {"type": "HCPCS", "code": "G0010", "label": "giving a hepatitis B vaccine (Medicare)"}
+  ]
+ },
+ "visitLevel": {
+  "note": "The visit codes modifier 25 attaches to (check 6): the office and outpatient visits, the preventive visits, and the FQHC visit codes.",
+  "ranges": [
+   {"type": "CPT4", "from": "99202", "to": "99205", "label": "office visit, a new patient"},
+   {"type": "CPT4", "from": "99211", "to": "99215", "label": "office visit, an established patient"},
+   {"type": "CPT4", "from": "99381", "to": "99387", "label": "preventive visit, a new patient"},
+   {"type": "CPT4", "from": "99391", "to": "99397", "label": "preventive visit, an established patient"},
+   {"type": "HCPCS", "from": "G0466", "to": "G0470", "label": "FQHC visit"}
+  ]
+ }
+}
