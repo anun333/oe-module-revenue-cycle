@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.1 (unreleased)
+## 0.1.1 (2026-10-25)
 
 - **Fixed: the look-back and the settings page stopped on OpenEMR 7.0.x.** They read form fields with `InputBag::getString()`, which Symfony added in 6.3, and OpenEMR 7.0.x ships Symfony 5.4. The module says it works on 7.0 and later, but it had only been checked on 8.4.1 and master. A fresh official 7.0.2 install found it: the look-back answered HTTP 500. Fields are now read the same way on both.
 - **Checked:** fresh official 7.0.2 and 8.5.0 installs, with the look-back loaded and the settings saved as the page posts them; unit tests.
