@@ -83,6 +83,10 @@ As written in the source; whether they behave correctly for a given user is not 
 
 - None.
 
+## Programs it runs
+
+- None: no `proc_open()`, `exec()`, `shell_exec()`, `system()`, `passthru()` or `popen()` in the module's PHP.
+
 ## Outbound network
 
 - None: no cURL, sockets, HTTP clients or remote `file_get_contents` in the module's PHP.
