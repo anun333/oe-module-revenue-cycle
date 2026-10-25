@@ -79,8 +79,14 @@ final class Flag
      */
     public function ref(): string
     {
-        $n = (int)(hexdec(substr(hash('sha256', "{$this->encounter}|{$this->kind}|{$this->subject}"), 0, 15)) % 900000000000000000);
-        return (string)(100000000000000000 + $n);
+        // Digits taken from the hash as text, so the ref is the same on 32-bit PHP, where an 18-digit number would
+        // be a float ("9.9E+16"), which the Worklist's key pattern refuses.
+        $hash = hash('sha256', "{$this->encounter}|{$this->kind}|{$this->subject}");
+        $digits = '';
+        for ($i = 0; $i < 17; $i++) {
+            $digits .= (string)(hexdec($hash[$i]) % 10);
+        }
+        return '1' . $digits;
     }
 
     /** source:pid:ref, as the Staff Worklist keys an item. */
