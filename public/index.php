@@ -31,8 +31,8 @@ if (!AclMain::aclCheckCore('acct', 'bill')) {
 $request = Request::get();
 $today = new DateTimeImmutable('today');
 $valid = fn(string $d): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) === 1;
-$from = $request->query->getString('from');
-$to = $request->query->getString('to');
+$from = Request::text($request->query->all(), 'from');
+$to = Request::text($request->query->all(), 'to');
 $from = $valid($from) ? $from : $today->format('Y') . '-01-01';
 $to = $valid($to) ? $to : $today->format('Y-m-d');
 $toExclusive = (new DateTimeImmutable($to))->modify('+1 day')->format('Y-m-d');

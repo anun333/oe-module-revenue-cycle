@@ -50,7 +50,7 @@ Then go to Modules › Manage Modules › Unregistered, and **Register**, **Inst
 
 ## Compatibility
 
-Written for OpenEMR 7.0 and later through [openhealthcare-common](https://github.com/anun333/openhealthcare-common)'s compatibility layer; its bootstrap never stops a page on any version. Checked end to end on 8.4.1 and master.
+Written for OpenEMR 7.0 and later through [openhealthcare-common](https://github.com/anun333/openhealthcare-common)'s compatibility layer; its bootstrap never stops a page on any version. Checked end to end on 8.4.1 and master, and on fresh official 7.0.2 and 8.5.0 installs with its pages loaded and its forms posted (from 0.1.1: 0.1.0's forms stopped on 7.0.x).
 
 ## Development
 

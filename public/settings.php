@@ -34,9 +34,9 @@ $visits = new VisitSource();
 $today = new DateTimeImmutable('today');
 $saved = false;
 if ($request->isMethod('POST')) {
-    OpenEmr::requireCsrf($request->request->getString('csrf_token_form'));
+    OpenEmr::requireCsrf(Request::text($request->request->all(), 'csrf_token_form'));
     $user = (int)OpenEmr::session('authUserID');
-    $start = $request->request->getString('start_date');
+    $start = Request::text($request->request->all(), 'start_date');
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) === 1) {
         $settings->save(Settings::START_DATE, $start, $user);
     }

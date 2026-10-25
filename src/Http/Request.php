@@ -30,4 +30,15 @@ final class Request
         }
         return self::$fallback ??= SymfonyRequest::createFromGlobals();
     }
+
+    /**
+     * A field as text: '' when it is missing or isn't one value. InputBag::getString() does this from
+     * Symfony 6.3, and OpenEMR 7.0.x ships 5.4, where calling it stops the page.
+     */
+    /** @param array<array-key, mixed> $fields a bag's fields: $request->query->all() */
+    public static function text(array $fields, string $key): string
+    {
+        $value = $fields[$key] ?? '';
+        return is_scalar($value) ? (string)$value : '';
+    }
 }
