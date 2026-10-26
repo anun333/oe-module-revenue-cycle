@@ -5,6 +5,25 @@
 - **The vaccine list's fields have names a screen reader can read.** Each row's CVX code, code type and product code field is named with its column and row ("CVX code, row 2"), and the table's headers are marked as column headers. They had none, so a screen reader announced bare edit fields.
 - **Pages declare the user's language.** Each page's `lang` and `dir` follow the signed-in user's OpenEMR language (openhealthcare-common 1.4.0), falling back to English where an older copy of the library was loaded first.
 - **The CC0 text ships with the module:** [LICENSES/CC0-1.0.txt](LICENSES/CC0-1.0.txt), for the labels in `data/codes.json`, which the README already marked CC0.
+- **The Worklist's Charges to check tab is quicker and no longer fills OpenEMR's audit log.** Each view wrote every flag it found, one statement per flag, and OpenEMR's audit log keeps a row for each statement. Now a view writes only what changed: a new flag, a cleared flag found again, a flag no longer found. Each statement carries up to 500 flags. A flag's `last_seen` now moves only when the flag is added or found again; nothing reads it.
+- **The look-back is quicker.** Reading the visits' charges, vaccines and in-clinic tests now names the visits' patients as well, so each lookup uses core's patient index. Core indexes billing, immunizations and procedure_order by patient, not by visit.
+- **The look-back lists 200 findings a page.** **List** shows every check or one, with **Previous** and **Next**. **Download this list as CSV** gives every row of the chosen list, with the page's columns. A cell beginning with `=`, `+`, `-` or `@` gets an apostrophe, so a spreadsheet doesn't read it as a formula. Each download is recorded in the audit log, with its count. Before, the page rendered every finding: 19 MB for a year with 56,030 findings.
+- **Measured** on a throwaway copy of OpenEMR master with 200,000 visits and 557,375 charge lines, the old code against the new:
+
+  | | old | new |
+  |---|---|---|
+  | Charges to check tab, first view | 287 s, 45,611 audit rows | 7.9 s, 92 audit rows |
+  | the same tab, nothing changed | 198 s, 45,611 audit rows | 6.5 s, no audit rows |
+  | the same tab, 300 flags added, cleared or found again | about 198 s, 45,911 audit rows | 6.6 s, 1 to 10 audit rows |
+  | look-back over 2025, as computed | 26.0 s | 6.5 s |
+  | look-back page over 2025, HTTPS | 27.8 s, 19.0 MB | 6.3 s, 75 KB |
+  | CSV over 2025, HTTPS | none | 7.8 s, 7.5 MB, 56,030 rows |
+
+  The vaccine and test lookups alone, over 2025's 143 chunks of visits, went from 1.46 s to 0.35 s and from 5.68 s to 0.46 s.
+- **Checked:**
+  - Results are identical. The old and new code gave the same tab items and the same stored flags after each of five views: all new, nothing changed, 300 lines losing their diagnosis, the diagnoses back, then lost again. They also gave the same look-back findings for 2025 and for 2026 so far.
+  - The CSV matches the old page row for row, and each new page matches its slice of the old page.
+  - Unit tests on PHP 8.2 and 8.5, including batches of 0, 500 and 501 flags, the page edges and the patient filters. 14 of the 15 new tests fail on the old code; the one that passes is the empty case.
 - Requires openhealthcare-common 1.4.0. The README notes that hand-copied modules need their libraries at one version.
 
 ## 0.1.5 (2026-10-26)

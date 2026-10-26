@@ -148,6 +148,39 @@ final class VisitSourceTest extends TestCase
         $this->assertCount(4, QueryUtils::$calls);
     }
 
+    public function testEachLookupIsReadThroughThePatientIndex(): void
+    {
+        QueryUtils::$results = [
+            [['id' => 1, 'encounter' => 501, 'pid' => 7, 'date' => '2026-10-01 09:00:00', 'pc_catid' => 5, 'sensitivity' => '',
+              'facility_id' => 3, 'provider_id' => 4, 'claimed' => 1, 'documented' => 1],
+             ['id' => 2, 'encounter' => 502, 'pid' => 7, 'date' => '2026-10-01 11:00:00', 'pc_catid' => 5, 'sensitivity' => '',
+              'facility_id' => 3, 'provider_id' => 4, 'claimed' => 1, 'documented' => 1],
+             ['id' => 3, 'encounter' => 503, 'pid' => 9, 'date' => '2026-10-01 12:00:00', 'pc_catid' => 5, 'sensitivity' => '',
+              'facility_id' => 3, 'provider_id' => 4, 'claimed' => 1, 'documented' => 1]],
+            [['id' => 10, 'encounter' => 503, 'code_type' => 'CPT4', 'code' => '99213', 'modifier' => '', 'units' => 1, 'fee' => 90, 'justify' => 'ICD10|E11.9:', 'ndc_info' => '']],
+            [['encounter_id' => 502, 'cvx_code' => '140']],
+            [],
+            [['encounter_id' => 501, 'code' => '87880', 'resulted' => 1]],
+        ];
+        $visits = (new VisitSource())->visits('2026-10-01', '2026-10-02', null, [900]);
+        // Core indexes these tables by patient and not by visit: the patients come first, each once.
+        $lines = QueryUtils::$calls[1];
+        $this->assertStringContainsString('FROM billing', $lines['sql']);
+        $this->assertStringContainsString('pid IN (?, ?) AND encounter IN (?, ?, ?)', $lines['sql']);
+        $this->assertSame([7, 9, 501, 502, 503], $lines['binds']);
+        $vaccines = QueryUtils::$calls[2];
+        $this->assertStringContainsString('i.patient_id IN (?, ?) AND i.encounter_id IN (?, ?, ?)', $vaccines['sql']);
+        $this->assertSame([7, 9, 501, 502, 503], $vaccines['binds']);
+        $tests = QueryUtils::$calls[4];
+        $this->assertStringContainsString('FROM procedure_order', $tests['sql']);
+        $this->assertMatchesRegularExpression('/po\.patient_id IN \(\?, \?\)\s+AND po\.encounter_id IN \(\?, \?, \?\)/', $tests['sql']);
+        $this->assertSame([900, 7, 9, 501, 502, 503], $tests['binds']);
+        $this->assertSame([], $visits[0]->lines);
+        $this->assertSame('99213', $visits[2]->lines[0]->code, 'the line still lands on its own visit');
+        $this->assertSame(['140'], $visits[1]->vaccinesGiven, 'and the vaccine on its own');
+        $this->assertSame([['code' => '87880', 'resulted' => true]], $visits[0]->inClinicTests, 'and the test on its own');
+    }
+
     public function testDeletedVisitsAreNotScanned(): void
     {
         QueryUtils::$results = [[]];

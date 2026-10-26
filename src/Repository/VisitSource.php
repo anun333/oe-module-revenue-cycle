@@ -80,12 +80,16 @@ final class VisitSource
             return [];
         }
         $encounters = array_map(fn(array $r): int => (int)$r['encounter'], $rows);
-        $lines = $this->lines($encounters);
-        $vaccines = $this->vaccines($encounters);
+        $pidOf = [];
+        foreach ($rows as $r) {
+            $pidOf[(int)$r['encounter']] = (int)$r['pid'];
+        }
+        $lines = $this->lines($encounters, $pidOf);
+        $vaccines = $this->vaccines($encounters, $pidOf);
         foreach ($this->sameDayVaccines($rows, $from, $to) as $e => $codes) {
             $vaccines[$e] = [...($vaccines[$e] ?? []), ...$codes];
         }
-        $tests = $inClinicLabs === [] ? [] : $this->tests($encounters, $inClinicLabs);
+        $tests = $inClinicLabs === [] ? [] : $this->tests($encounters, $inClinicLabs, $pidOf);
         $out = [];
         foreach ($rows as $r) {
             $e = (int)$r['encounter'];
@@ -220,17 +224,19 @@ final class VisitSource
     }
 
     /**
-     * @param list<int> $encounters
+     * @param list<int>        $encounters
+     * @param array<int, int>  $pidOf      each visit's patient
      * @return array<int, list<Line>>
      */
-    private function lines(array $encounters): array
+    private function lines(array $encounters, array $pidOf): array
     {
         $out = [];
         foreach (array_chunk($encounters, self::CHUNK) as $chunk) {
+            $pids = self::patients($chunk, $pidOf);
             foreach (QueryUtils::fetchRecords(
                 'SELECT id, encounter, code_type, code, modifier, units, fee, justify, ndc_info FROM billing
-                  WHERE activity = 1 AND encounter IN (' . self::marks($chunk) . ') ORDER BY id',
-                $chunk
+                  WHERE activity = 1 AND pid IN (' . self::marks($pids) . ') AND encounter IN (' . self::marks($chunk) . ') ORDER BY id',
+                [...$pids, ...$chunk]
             ) as $r) {
                 $out[(int)$r['encounter']][] = new Line((int)$r['id'], (string)$r['code_type'], trim((string)$r['code']), trim((string)($r['modifier'] ?? '')),
                     max(1, (int)$r['units']), (float)$r['fee'], (string)($r['justify'] ?? ''), trim((string)($r['ndc_info'] ?? '')));
@@ -241,16 +247,18 @@ final class VisitSource
 
     /**
      * @param list<int> $encounters
+     * @param array<int, int> $pidOf each visit's patient
      * @return array<int, list<string>>
      */
-    private function vaccines(array $encounters): array
+    private function vaccines(array $encounters, array $pidOf): array
     {
         $out = [];
         foreach (array_chunk($encounters, self::CHUNK) as $chunk) {
+            $pids = self::patients($chunk, $pidOf);
             foreach (QueryUtils::fetchRecords(
                 'SELECT i.encounter_id, i.cvx_code FROM immunizations AS i
-                  WHERE ' . self::GIVEN . ' AND i.encounter_id IN (' . self::marks($chunk) . ')',
-                $chunk
+                  WHERE ' . self::GIVEN . ' AND i.patient_id IN (' . self::marks($pids) . ') AND i.encounter_id IN (' . self::marks($chunk) . ')',
+                [...$pids, ...$chunk]
             ) as $r) {
                 $out[(int)$r['encounter_id']][] = trim((string)$r['cvx_code']);
             }
@@ -330,26 +338,43 @@ final class VisitSource
      *
      * @param list<int> $encounters
      * @param list<int> $labs
+     * @param array<int, int> $pidOf each visit's patient
      * @return array<int, list<array{code: string, resulted: bool}>>
      */
-    private function tests(array $encounters, array $labs): array
+    private function tests(array $encounters, array $labs, array $pidOf): array
     {
         $out = [];
         foreach (array_chunk($encounters, self::CHUNK) as $chunk) {
+            $pids = self::patients($chunk, $pidOf);
             foreach (QueryUtils::fetchRecords(
                 'SELECT po.encounter_id, COALESCE(NULLIF(pt.standard_code, \'\'), poc.procedure_code) AS code,
                         EXISTS (SELECT 1 FROM procedure_report AS pr WHERE pr.procedure_order_id = po.procedure_order_id AND pr.procedure_order_seq = poc.procedure_order_seq) AS resulted
                    FROM procedure_order AS po
                    JOIN procedure_order_code AS poc ON poc.procedure_order_id = po.procedure_order_id
                    LEFT JOIN procedure_type AS pt ON pt.lab_id = po.lab_id AND pt.procedure_code = poc.procedure_code AND pt.procedure_type = \'ord\'
-                  WHERE po.activity = 1 AND po.lab_id IN (' . self::marks($labs) . ') AND po.encounter_id IN (' . self::marks($chunk) . ')',
-                [...$labs, ...$chunk]
+                  WHERE po.activity = 1 AND po.lab_id IN (' . self::marks($labs) . ') AND po.patient_id IN (' . self::marks($pids) . ')
+                    AND po.encounter_id IN (' . self::marks($chunk) . ')',
+                [...$labs, ...$pids, ...$chunk]
             ) as $r) {
                 $code = (string)preg_replace('/^[A-Z0-9-]+:/', '', trim((string)$r['code']));
                 $out[(int)$r['encounter_id']][] = ['code' => $code, 'resulted' => (bool)$r['resulted']];
             }
         }
         return $out;
+    }
+
+    /**
+     * The patients of a chunk of visits. Core indexes billing, immunizations and procedure_order by patient, not by
+     * visit: naming the patients alongside the visits lets each lookup use that index instead of reading the whole table
+     * for every chunk.
+     *
+     * @param list<int> $chunk
+     * @param array<int, int> $pidOf
+     * @return list<int>
+     */
+    private static function patients(array $chunk, array $pidOf): array
+    {
+        return array_values(array_unique(array_map(fn(int $e): int => $pidOf[$e] ?? 0, $chunk)));
     }
 
     /** @param list<int|string> $values */

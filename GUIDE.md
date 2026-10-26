@@ -44,9 +44,11 @@ On check 8: Medicaid needs the NDC on drugs given in the clinic, and other payer
 3. Each finding is a row: **Patient**, **Visit**, **Check**, **Found**, **Charge** and **Days left to correct**.
    - **Charge** comes from your own fee schedule, at the patient's own price level, the way the fee sheet charges them (new in 0.1.4; earlier versions used the standard level for everyone). It's a charge, not an expected payment. It's blank where the patient's level has no price for the code.
    - **Days left to correct** is shown for a missed charge: the days left in the year a Medicare claim can still be corrected.
-4. Under **What became of the flags first found in this period**, each check's flags are counted as **Found**, **Accepted**, **Dismissed** and **Open**. Accepted means the finding cleared after the fee sheet changed.
+4. The list shows 200 findings a page; **Previous** and **Next** move between pages. To see one check, choose it under **List** (each shows how many it found) and choose **Show**. The counts above the list always cover every check.
+5. **Download this list as CSV** saves every row of the list you're looking at, all checks or the one chosen, for a spreadsheet. The download is recorded in the audit log, like viewing the page.
+6. Under **What became of the flags first found in this period**, each check's flags are counted as **Found**, **Accepted**, **Dismissed** and **Open**. Accepted means the finding cleared after the fee sheet changed.
 
-*What it doesn't do:* it never refunds or reports to a payer. A charge with nothing behind it on a paid claim is for whoever handles compliance at the clinic (the 60-day rule). There's no CSV of the look-back yet.
+*What it doesn't do:* it never refunds or reports to a payer. A charge with nothing behind it on a paid claim is for whoever handles compliance at the clinic (the 60-day rule).
 
 ## The administrator
 

@@ -32,4 +32,14 @@ final class QueryUtils
         self::$calls[] = ['sql' => $sql, 'binds' => $binds];
         return array_shift(self::$results) ?? [];
     }
+
+    /**
+     * A write: kept in the same list as the reads, and takes no queued result.
+     *
+     * @param array<mixed> $binds
+     */
+    public static function sqlStatementThrowException(string $sql, array $binds = []): void
+    {
+        self::$calls[] = ['sql' => $sql, 'binds' => $binds];
+    }
 }

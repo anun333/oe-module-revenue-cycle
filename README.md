@@ -15,8 +15,8 @@ A charge review inside the clinic, before claims go out: care in the record that
   6. modifier 25 on a visit code with no other service beside it;
   7. a charge with no diagnosis pointer;
   8. a drug billed by its J code with no NDC the claim would carry (Medicaid needs it on drugs given in the clinic).
-- **The queue** is a "Charges to check" tab in the [Staff Worklist](https://github.com/anun333/oe-module-staff-worklist), for whoever bills. Each item says what was found and opens the visit. Accept by fixing the fee sheet; the flag clears on its own. Dismiss with a reason, which the Worklist logs.
-- **The look-back** runs the same checks over visits already billed, both directions, with each charge from the clinic's own fee schedule at the patient's own price level and, for a missed charge, the days left in the year a Medicare claim can be corrected. It counts what became of every flag: accepted, dismissed or open, by check and direction.
+- **The queue** is a "Charges to check" tab in the [Staff Worklist](https://github.com/anun333/oe-module-staff-worklist), for whoever bills. Each item says what was found and opens the visit. Accept by fixing the fee sheet; the flag clears on its own. Dismiss with a reason, which the Worklist logs. A view records only the flags that are new, cleared or found again, so one that changes nothing writes nothing to the database or to OpenEMR's audit log.
+- **The look-back** runs the same checks over visits already billed, both directions, with each charge from the clinic's own fee schedule at the patient's own price level and, for a missed charge, the days left in the year a Medicare claim can be corrected. It counts what became of every flag: accepted, dismissed or open, by check and direction. The list shows 200 findings a page, all checks or one, and downloads as a CSV file with every row of the chosen list.
 - **Settings:** when the review starts, how many days coding gets, the visit categories never billed, the procedure provider whose tests are run in the clinic, the clinic's vaccine list (each CVX with the product code it bills), and whether check 8 runs (on unless turned off, for a site that bills no payer needing NDCs). The vaccine rows start from what was given here.
 
 - **A staff guide**, [GUIDE.md](GUIDE.md), task by task for the biller, whoever reviews billing, and the administrator. **Help** on each page opens it at the installed version.
@@ -30,7 +30,7 @@ A charge review inside the clinic, before claims go out: care in the record that
 
 ## Who can open what
 
-The page, the settings and the Worklist tab need OpenEMR's billing permission (`acct/bill`). A visit marked with a sensitivity shows only to users core's own sensitivity check allows. Viewing the look-back and saving settings are in the audit log.
+The page, the settings and the Worklist tab need OpenEMR's billing permission (`acct/bill`). A visit marked with a sensitivity shows only to users core's own sensitivity check allows. Viewing the look-back, downloading its CSV and saving settings are in the audit log.
 
 ## Known limits
 
@@ -41,7 +41,6 @@ The page, the settings and the Worklist tab need OpenEMR's billing permission (`
 - The dashboard (0.2.0), on the shared library's figures contract.
 - NCCI pairs and units for practices billing per service (0.3.0), from files the site imports.
 - Health-center claim presets and charge capture (0.4.0).
-- A CSV of the look-back.
 
 ## Install
 

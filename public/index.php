@@ -25,6 +25,7 @@ use OpenHealthcare\RevenueCycle\Http\Page;
 use OpenHealthcare\RevenueCycle\Http\Request;
 use OpenHealthcare\RevenueCycle\Labels;
 use OpenHealthcare\RevenueCycle\Review\ChargeReview;
+use OpenHealthcare\RevenueCycle\Review\LookBackPage;
 
 // The same access as Bootstrap::ACL, written out: tools/footprint.php lists each check it can read.
 if (!AclMain::aclCheckCore('acct', 'bill')) {
@@ -38,27 +39,59 @@ $to = Request::text($request->query->all(), 'to');
 $from = $valid($from) ? $from : $today->format('Y') . '-01-01';
 $to = $valid($to) ? $to : $today->format('Y-m-d');
 $toExclusive = (new DateTimeImmutable($to))->modify('+1 day')->format('Y-m-d');
+$check = (int)Request::text($request->query->all(), 'check');
+$pageNo = (int)Request::text($request->query->all(), 'page');
+$csv = Request::text($request->query->all(), 'format') === 'csv';
 $review = new ChargeReview();
 $found = $review->lookBack($from, $toExclusive, $today);
-$counts = $review->counts($from, $toExclusive);
-OpenEmr::audit('other', 'Revenue Cycle: look-back viewed');
 
 // Who is visible: a visit marked with a sensitivity shows only to users core's own check allows.
 $found = array_values(array_filter($found, fn(array $f): bool => $f['visit']->sensitivity === '' || AclMain::aclCheckCore('sensitivities', $f['visit']->sensitivity)));
-$names = [];
-$pids = array_values(array_unique(array_map(fn(array $f): int => $f['flag']->pid, $found)));
-foreach (array_chunk($pids, 500) as $chunk) {
-    foreach (QueryUtils::fetchRecords('SELECT pid, fname, lname, pubpid FROM patient_data WHERE pid IN (' . implode(', ', array_fill(0, count($chunk), '?')) . ')', $chunk) as $r) {
-        $names[(int)$r['pid']] = trim($r['lname'] . ', ' . $r['fname'], ', ') . ' (' . $r['pubpid'] . ')';
+$byCheck = LookBackPage::byCheck($found);
+// A check with nothing found in this period (an old link, a typed one) lists every check, as the List box then shows.
+$check = isset($byCheck[$check]) ? $check : 0;
+$shown = LookBackPage::forCheck($found, $check);
+$names = function (array $rows): array {
+    $names = [];
+    $pids = array_values(array_unique(array_map(fn(array $f): int => $f['flag']->pid, $rows)));
+    foreach (array_chunk($pids, 500) as $chunk) {
+        foreach (QueryUtils::fetchRecords('SELECT pid, fname, lname, pubpid FROM patient_data WHERE pid IN (' . implode(', ', array_fill(0, count($chunk), '?')) . ')', $chunk) as $r) {
+            $names[(int)$r['pid']] = trim($r['lname'] . ', ' . $r['fname'], ', ') . ' (' . $r['pubpid'] . ')';
+        }
     }
+    return $names;
+};
+$money = fn(?float $a): string => $a === null ? '' : number_format($a, 2);
+
+// The whole list, every row, as a CSV file.
+if ($csv) {
+    OpenEmr::audit('other', 'Revenue Cycle: look-back exported, ' . count($shown) . ' findings');
+    $who = $names($shown);
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="revenue-cycle-look-back-' . $from . '-to-' . $to . '.csv"');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, [xl('Patient'), xl('Visit'), xl('Check'), xl('Direction'), xl('Found'), xl('Charge'), xl('Days left to correct')], ',', '"', '');
+    foreach ($shown as $f) {
+        fputcsv($out, array_map(fn($v): string => LookBackPage::cell((string)$v), [
+            $who[$f['flag']->pid] ?? (string)$f['flag']->pid, $f['visit']->date, $f['flag']->check(), Labels::direction($f['flag']->direction(), 'xl'),
+            Labels::flag($f['flag'], 'xl'), $money($f['amount']), $f['daysLeft'] === null ? '' : (string)$f['daysLeft'],
+        ]), ',', '"', '');
+    }
+    fclose($out);
+    exit;
 }
+
+$counts = $review->counts($from, $toExclusive);
+OpenEmr::audit('other', 'Revenue Cycle: look-back viewed');
+$list = LookBackPage::page($shown, $pageNo);
+$who = $names($list['rows']);
+$link = fn(array $extra): string => 'index.php?' . http_build_query(['from' => $from, 'to' => $to, 'check' => $check] + $extra);
 $totals = [];
 foreach ($found as $f) {
     $d = $f['flag']->direction();
     $totals[$d]['n'] = ($totals[$d]['n'] ?? 0) + 1;
     $totals[$d]['amount'] = ($totals[$d]['amount'] ?? 0) + ($f['amount'] ?? 0);
 }
-$money = fn(?float $a): string => $a === null ? '' : number_format($a, 2);
 ?>
 <!DOCTYPE html>
 <?php // The module's own text is written in English. ?>
@@ -92,12 +125,28 @@ $money = fn(?float $a): string => $a === null ? '' : number_format($a, 2);
         <?php endforeach; ?>
     </ul>
     <?php if ($found !== []) : ?>
+        <form method="get" class="form-inline mb-2">
+            <input type="hidden" name="from" value="<?php echo attr($from); ?>">
+            <input type="hidden" name="to" value="<?php echo attr($to); ?>">
+            <label for="check" class="mr-2"><?php echo xlt('List'); ?></label>
+            <select id="check" name="check" class="form-control mr-2">
+                <option value="0"><?php echo text(sprintf(xl('Every check (%d)'), count($found))); ?></option>
+                <?php foreach ($byCheck as $c => $n) : ?>
+                    <option value="<?php echo attr((string)$c); ?>"<?php echo $c === $check ? ' selected' : ''; ?>><?php echo text(sprintf(xl('Check %1$d (%2$d)'), $c, $n)); ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" class="btn btn-secondary mr-3"><?php echo xlt('Show'); ?></button>
+            <a href="<?php echo attr($link(['format' => 'csv'])); ?>"><?php echo xlt('Download this list as CSV'); ?></a>
+        </form>
+        <p class="small"><?php echo text(sprintf(xl('Rows %1$d to %2$d of %3$d'), $list['first'], $list['last'], $list['total'])); ?>
+            <?php if ($list['page'] > 1) : ?> · <a href="<?php echo attr($link(['page' => $list['page'] - 1])); ?>"><?php echo xlt('Previous'); ?></a><?php endif; ?>
+            <?php if ($list['page'] < $list['pages']) : ?> · <a href="<?php echo attr($link(['page' => $list['page'] + 1])); ?>"><?php echo xlt('Next'); ?></a><?php endif; ?></p>
         <table class="table table-sm">
-            <thead><tr><th><?php echo xlt('Patient'); ?></th><th><?php echo xlt('Visit'); ?></th><th><?php echo xlt('Check'); ?></th><th><?php echo xlt('Found'); ?></th>
-                <th class="text-right"><?php echo xlt('Charge'); ?></th><th class="text-right"><?php echo xlt('Days left to correct'); ?></th></tr></thead>
+            <thead><tr><th scope="col"><?php echo xlt('Patient'); ?></th><th scope="col"><?php echo xlt('Visit'); ?></th><th scope="col"><?php echo xlt('Check'); ?></th><th scope="col"><?php echo xlt('Found'); ?></th>
+                <th scope="col" class="text-right"><?php echo xlt('Charge'); ?></th><th scope="col" class="text-right"><?php echo xlt('Days left to correct'); ?></th></tr></thead>
             <tbody>
-            <?php foreach ($found as $f) : ?>
-                <tr><td><?php echo text($names[$f['flag']->pid] ?? (string)$f['flag']->pid); ?></td><td><?php echo text($f['visit']->date); ?></td>
+            <?php foreach ($list['rows'] as $f) : ?>
+                <tr><td><?php echo text($who[$f['flag']->pid] ?? (string)$f['flag']->pid); ?></td><td><?php echo text($f['visit']->date); ?></td>
                     <td><?php echo text($f['flag']->check() . ' · ' . Labels::direction($f['flag']->direction(), 'xl')); ?></td>
                     <td><?php echo text(Labels::flag($f['flag'], 'xl')); ?></td>
                     <td class="text-right"><?php echo text($money($f['amount'])); ?></td>

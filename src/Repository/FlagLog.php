@@ -20,8 +20,14 @@ use OpenHealthcare\RevenueCycle\Domain\Flag;
 
 final class FlagLog
 {
+    /** Rows per statement: one statement per batch, not per flag, so a view writes (and core audits) a few. */
+    public const BATCH = 500;
+
     /**
-     * Records this run's flags, and marks cleared the ones on the same visits (and appointments) no longer found.
+     * Records what changed since the last run: a flag found for the first time is added, a cleared flag found again
+     * reopens, and an open flag on the scanned visits (and appointments) no longer found is marked cleared. A flag
+     * found again and still open is left as it is, so a view that changes nothing writes nothing, and core's audit
+     * log, which records each write, doesn't grow with every view.
      *
      * @param list<Flag> $flags      everything the checks found on the scanned visits
      * @param list<int>  $encounters the visits scanned
@@ -29,26 +35,62 @@ final class FlagLog
     public function record(array $flags, array $encounters, \DateTimeImmutable $now): void
     {
         $at = $now->format('Y-m-d H:i:s');
+        $byKey = [];
         foreach ($flags as $f) {
-            QueryUtils::sqlStatementThrowException(
-                'INSERT INTO revenue_cycle_flag (item_key, pid, encounter, kind, check_no, direction, subject, first_seen, last_seen, cleared_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
-                 ON DUPLICATE KEY UPDATE last_seen = VALUES(last_seen), cleared_at = NULL',
-                [$f->key(), $f->pid, $f->encounter, $f->kind, $f->check(), $f->direction(), substr($f->subject, 0, 191), $at, $at]
-            );
+            $byKey[$f->key()] ??= $f;
         }
-        $found = array_flip(array_map(fn(Flag $f): string => $f->key(), $flags));
-        foreach (array_chunk(array_values(array_unique([...$encounters, 0])), 500) as $chunk) {
-            $open = QueryUtils::fetchRecords(
-                'SELECT item_key FROM revenue_cycle_flag WHERE cleared_at IS NULL AND encounter IN (' . implode(', ', array_fill(0, count($chunk), '?')) . ')',
-                $chunk
-            );
-            foreach ($open as $r) {
-                if (!isset($found[$r['item_key']])) {
-                    QueryUtils::sqlStatementThrowException('UPDATE revenue_cycle_flag SET cleared_at = ? WHERE item_key = ?', [$at, $r['item_key']]);
-                }
+        $keys = array_map('strval', array_keys($byKey));
+        $cleared = [];
+        foreach (array_chunk($keys, self::BATCH) as $chunk) {
+            foreach (QueryUtils::fetchRecords('SELECT item_key, cleared_at FROM revenue_cycle_flag WHERE item_key IN (' . self::marks($chunk) . ')', $chunk) as $r) {
+                $cleared[(string)$r['item_key']] = $r['cleared_at'] !== null;
             }
         }
+        $new = array_values(array_filter($byKey, fn(Flag $f): bool => !array_key_exists($f->key(), $cleared)));
+        foreach (array_chunk($new, self::BATCH) as $chunk) {
+            $binds = [];
+            foreach ($chunk as $f) {
+                array_push($binds, $f->key(), $f->pid, $f->encounter, $f->kind, $f->check(), $f->direction(), substr($f->subject, 0, 191), $at, $at);
+            }
+            // The duplicate-key clause covers another view recording the same flag in between.
+            QueryUtils::sqlStatementThrowException(
+                'INSERT INTO revenue_cycle_flag (item_key, pid, encounter, kind, check_no, direction, subject, first_seen, last_seen, cleared_at) VALUES '
+                . implode(', ', array_fill(0, count($chunk), '(?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)'))
+                . ' ON DUPLICATE KEY UPDATE last_seen = VALUES(last_seen), cleared_at = NULL',
+                $binds
+            );
+        }
+        $reopen = array_keys(array_filter($cleared));
+        foreach (array_chunk($reopen, self::BATCH) as $chunk) {
+            QueryUtils::sqlStatementThrowException(
+                'UPDATE revenue_cycle_flag SET cleared_at = NULL, last_seen = ? WHERE item_key IN (' . self::marks($chunk) . ')',
+                [$at, ...$chunk]
+            );
+        }
+        $found = array_flip($keys);
+        foreach (array_chunk(array_values(array_unique([...$encounters, 0])), self::BATCH) as $chunk) {
+            $gone = [];
+            foreach (QueryUtils::fetchRecords(
+                'SELECT item_key FROM revenue_cycle_flag WHERE cleared_at IS NULL AND encounter IN (' . self::marks($chunk) . ')',
+                $chunk
+            ) as $r) {
+                if (!isset($found[(string)$r['item_key']])) {
+                    $gone[] = (string)$r['item_key'];
+                }
+            }
+            foreach (array_chunk($gone, self::BATCH) as $batch) {
+                QueryUtils::sqlStatementThrowException(
+                    'UPDATE revenue_cycle_flag SET cleared_at = ? WHERE item_key IN (' . self::marks($batch) . ')',
+                    [$at, ...$batch]
+                );
+            }
+        }
+    }
+
+    /** @param list<mixed> $values */
+    private static function marks(array $values): string
+    {
+        return implode(', ', array_fill(0, count($values), '?'));
     }
 
     /**
