@@ -82,6 +82,7 @@ $rows = $vaccineList + array_fill_keys(array_map(fn(array $r): string => trim((s
     <meta charset="utf-8">
     <title><?php echo xlt('Revenue Cycle settings'); ?></title>
     <?php Header::setupHeader(['common']); ?>
+    <?php echo \OpenHealthcare\RevenueCycle\Contrast::style(); ?>
 </head>
 <body class="body_top">
 <main class="container-fluid py-3" style="max-width: 70rem">

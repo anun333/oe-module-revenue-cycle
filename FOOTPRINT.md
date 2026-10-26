@@ -77,6 +77,7 @@ As written in the source; whether they behave correctly for a given user is not 
 
 ## Settings it reads
 
+- `css_header` (`src/Contrast.php`)
 - `fee_sheet_save_appt_status` (`src/Repository/VisitSource.php`)
 
 ## Files it writes
@@ -95,9 +96,9 @@ As written in the source; whether they behave correctly for a given user is not 
 
 | part | files | lines |
 |---|---|---|
-| PHP logic (`src/`) | 13 | 1197 |
-| tests (`tests/`, `phpunit.xml.dist`) | 8 | 404 |
-| pages (`public/`) | 2 | 267 |
+| PHP logic (`src/`) | 14 | 1247 |
+| tests (`tests/`, `phpunit.xml.dist`) | 9 | 451 |
+| pages (`public/`) | 2 | 269 |
 | module wiring | 5 | 159 |
 | install SQL (`sql/`) | 1 | 37 |
 | tools (`tools/`) | 1 | 31 |

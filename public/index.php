@@ -65,6 +65,7 @@ $money = fn(?float $a): string => $a === null ? '' : number_format($a, 2);
     <meta charset="utf-8">
     <title><?php echo xlt('Revenue Cycle'); ?></title>
     <?php Header::setupHeader(['common']); ?>
+    <?php echo \OpenHealthcare\RevenueCycle\Contrast::style(); ?>
 </head>
 <body class="body_top">
 <main class="container-fluid py-3" style="max-width: 80rem">
