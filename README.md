@@ -6,17 +6,20 @@ A charge review inside the clinic, before claims go out: care in the record that
 
 ## What it does
 
-- **Seven checks** on each visit whose claim hasn't gone out:
+- **Eight checks** on each visit whose claim hasn't gone out:
   1. seen and not billed: a documented visit, past the days coding gets, with no charge; or an appointment marked seen with no visit;
   2. a vaccine given here with no line for the product the clinic bills for it, or with no administration line;
   3. a test run in the clinic, resulted, with no line for its code;
   4. the mirrors: a vaccine product or administration line with no vaccine given, an in-clinic test billed with no result, charges on a visit with no forms and no signature;
   5. the same code twice on one visit, where units would carry the count;
   6. modifier 25 on a visit code with no other service beside it;
-  7. a charge with no diagnosis pointer.
+  7. a charge with no diagnosis pointer;
+  8. a drug billed by its J code with no NDC the claim would carry (Medicaid needs it on drugs given in the clinic).
 - **The queue** is a "Charges to check" tab in the [Staff Worklist](https://github.com/anun333/oe-module-staff-worklist), for whoever bills. Each item says what was found and opens the visit. Accept by fixing the fee sheet; the flag clears on its own. Dismiss with a reason, which the Worklist logs.
-- **The look-back** runs the same checks over visits already billed, both directions, with each charge from the clinic's own fee schedule and, for a missed charge, the days left in the year a Medicare claim can be corrected. It counts what became of every flag: accepted, dismissed or open, by check and direction.
+- **The look-back** runs the same checks over visits already billed, both directions, with each charge from the clinic's own fee schedule at the patient's own price level and, for a missed charge, the days left in the year a Medicare claim can be corrected. It counts what became of every flag: accepted, dismissed or open, by check and direction.
 - **Settings:** when the review starts, how many days coding gets, the visit categories never billed, the procedure provider whose tests are run in the clinic, and the clinic's vaccine list (each CVX with the product code it bills). The vaccine rows start from what was given here.
+
+- **A staff guide**, [GUIDE.md](GUIDE.md), task by task for the biller, whoever reviews billing, and the administrator. **Help** on each page opens it at the installed version.
 
 ## What it never does
 
