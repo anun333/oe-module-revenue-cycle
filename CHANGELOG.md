@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.5 (unreleased)
+## 0.1.5 (2026-10-26)
 
 - **Fixed: a vaccine recorded without choosing a visit got a false flag.** OpenEMR's Immunizations screen lets the visit be left empty. Such a vaccine was never matched to a visit, so its product and administration lines were flagged "billed with none given" (check 4), and check 2 never saw it. A vaccine given here with no visit chosen now counts toward the visit the patient had that day, when there was exactly one; on a day with two visits it's left unplaced rather than guessed. Our UDS module joins such records to a same-day visit the same way.
 - **Checked:** new unit tests for the same-day rule fail on 0.1.4's code. Both new queries were run on the 8.4.1 and master databases, and on rows planted in a rolled-back transaction they found a vaccine with an empty visit (NULL and 0), left out a history entry, and found the day's one visit. Fresh official 7.0.2 and 8.5.0 installs load every page and post the settings form, and the end-to-end check passes on master.
