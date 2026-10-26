@@ -19,12 +19,25 @@ declare(strict_types=1);
 namespace OpenHealthcare\RevenueCycle\Repository;
 
 use OpenEMR\Common\Database\QueryUtils;
+use OpenHealthcare\Common\OpenEmr;
 use OpenHealthcare\RevenueCycle\Domain\Line;
 use OpenHealthcare\RevenueCycle\Domain\Visit;
 
 final class VisitSource
 {
     private const CHUNK = 500;
+
+    /**
+     * SQL that's true while the visit under this form_encounter alias is there. Core's deleter removes the
+     * form_encounter row; a visit form deleted from the encounter keeps its row, with forms.deleted = 1 on its
+     * newpatient form, and core's own visit lists then hide it (interface/patient_file/history/encounters.php
+     * joins newpatient with deleted = 0). A visit with no newpatient row at all still counts.
+     */
+    public static function live(string $alias): string
+    {
+        return "(NOT EXISTS (SELECT 1 FROM forms AS np WHERE np.pid = $alias.pid AND np.encounter = $alias.encounter AND np.formdir = 'newpatient' AND np.deleted = 1)
+                 OR EXISTS (SELECT 1 FROM forms AS np WHERE np.pid = $alias.pid AND np.encounter = $alias.encounter AND np.formdir = 'newpatient' AND np.deleted = 0))";
+    }
 
     /**
      * Visits dated from $from up to (not including) $to; claimed ones only, unclaimed only, or both (null).
@@ -49,7 +62,7 @@ final class VisitSource
                     OR EXISTS (SELECT 1 FROM esign_signatures AS s JOIN forms AS f ON s.`table` = 'forms' AND s.tid = f.id
                                WHERE f.pid = fe.pid AND f.encounter = fe.encounter AND f.deleted = 0) AS documented
                FROM form_encounter AS fe
-              WHERE fe.date >= ? AND fe.date < ? $patient
+              WHERE fe.date >= ? AND fe.date < ? $patient AND " . self::live('fe') . "
               ORDER BY fe.date, fe.encounter",
             $binds
         );
@@ -121,17 +134,39 @@ final class VisitSource
 
     /**
      * The statuses that mean the patient was seen: the ones core's list marks arrived or checked out, but not
-     * "left without visit", which core also marks as a check-out; plus in exam room and coding done when the list has them.
+     * "left without visit", which core also marks as a check-out; plus in exam room and coding done when the list
+     * has them, and the status the site's fee sheet offers after a save (Billing > Fee Sheet Save: Ask to Set
+     * Appointment Status, OpenEMR 8.5.0's fee_sheet_save_appt_status, #14790), which marks a visit as coded.
      *
      * @return list<string>
      */
     public function seenStatuses(): array
     {
+        return self::seen(
+            QueryUtils::fetchRecords("SELECT option_id, title, toggle_setting_1, toggle_setting_2 FROM list_options WHERE list_id = 'apptstat' AND activity = 1"),
+            OpenEmr::setting('fee_sheet_save_appt_status')
+        );
+    }
+
+    /**
+     * seenStatuses() from the active apptstat options and that setting ('' where unset or before 8.5.0).
+     *
+     * @param list<array<string, mixed>> $options
+     * @return list<string>
+     */
+    public static function seen(array $options, string $coded): array
+    {
+        $coded = trim($coded);
         $out = [];
-        foreach (QueryUtils::fetchRecords("SELECT option_id, title, toggle_setting_1, toggle_setting_2 FROM list_options WHERE list_id = 'apptstat' AND activity = 1") as $r) {
-            $left = stripos((string)$r['title'], 'w/o visit') !== false || stripos((string)$r['title'], 'without visit') !== false;
-            if (!$left && ((int)$r['toggle_setting_1'] === 1 || (int)$r['toggle_setting_2'] === 1 || in_array((string)$r['option_id'], ['<', '$'], true))) {
-                $out[] = (string)$r['option_id'];
+        foreach ($options as $r) {
+            $id = (string)($r['option_id'] ?? '');
+            $title = (string)($r['title'] ?? '');
+            $left = stripos($title, 'w/o visit') !== false || stripos($title, 'without visit') !== false;
+            // Core's prompt never sets its status on a canceled (x), canceled < 24h (%) or no-show (?) appointment, so
+            // none of those becomes "seen" through the setting.
+            $named = in_array($id, ['<', '$'], true) || ($coded !== '' && $id === $coded && !in_array($id, ['x', '%', '?'], true));
+            if (!$left && ((int)($r['toggle_setting_1'] ?? 0) === 1 || (int)($r['toggle_setting_2'] ?? 0) === 1 || $named)) {
+                $out[] = $id;
             }
         }
         return $out;
@@ -152,17 +187,22 @@ final class VisitSource
     }
 
     /**
-     * The clinic's fee for a code at a price level, from its own fee schedule, or null when it has none.
+     * The clinic's fee for a code at a price level, from its own fee schedule, or null when it has none. The code's
+     * row is the one core's fee sheet lookup picks since #14719 (src/Billing/FeeSheetChargeLookup.php, row():
+     * ORDER BY c.active DESC, c.modifier, c.id): an active row first, then the one without a modifier, then the
+     * oldest. With several rows for a code (an old inactive one, one with JZ) it used to take whichever came first.
+     * When that row has no price at the level, there is none: the fee sheet would charge none either.
      */
     public function price(string $codeType, string $code, string $level): ?float
     {
         $row = QueryUtils::fetchRecords(
             "SELECT p.pr_price FROM codes AS c JOIN code_types AS ct ON ct.ct_id = c.code_type
-               JOIN prices AS p ON p.pr_id = c.id AND p.pr_selector = '' AND p.pr_level = ?
-              WHERE ct.ct_key = ? AND c.code = ? AND c.modifier = '' LIMIT 1",
+               LEFT JOIN prices AS p ON p.pr_id = c.id AND p.pr_selector = '' AND p.pr_level = ?
+              WHERE ct.ct_key = ? AND c.code = ?
+              ORDER BY c.active DESC, c.modifier, c.id LIMIT 1",
             [$level, $codeType, $code]
         )[0] ?? null;
-        return $row === null ? null : (float)$row['pr_price'];
+        return $row === null || !is_numeric($row['pr_price'] ?? null) ? null : (float)$row['pr_price'];
     }
 
     /**

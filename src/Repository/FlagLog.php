@@ -58,15 +58,24 @@ final class FlagLog
      */
     public function counts(string $from, string $to): array
     {
-        $worklist = QueryUtils::fetchRecords("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'staff_worklist_state'") !== [];
+        // Dismissals are kept by the Staff Worklist module (another openhealthcare module), in its own table: read
+        // only when that table has the two columns this reads. Without the Worklist nothing counts as dismissed.
+        $worklist = (int)(QueryUtils::fetchRecords(
+            "SELECT COUNT(*) AS n FROM information_schema.columns
+              WHERE table_schema = DATABASE() AND table_name = 'staff_worklist_state' AND column_name IN ('item_key', 'status')"
+        )[0]['n'] ?? 0) === 2;
         $dismissed = $worklist ? "EXISTS (SELECT 1 FROM staff_worklist_state AS s WHERE s.item_key = f.item_key AND s.status = 'dismissed')" : '0';
+        // A flag counts while its visit is there; an appointment's flag (encounter 0) has none. A deleted visit is
+        // never scanned again, so its open flag would otherwise stay open forever.
+        $live = 'f.encounter = 0 OR EXISTS (SELECT 1 FROM form_encounter AS fe WHERE fe.pid = f.pid AND fe.encounter = f.encounter AND '
+            . VisitSource::live('fe') . ')';
         return array_map(fn(array $r): array => ['check_no' => (int)$r['check_no'], 'direction' => (string)$r['direction'], 'found' => (int)$r['found'],
             'accepted' => (int)$r['accepted'], 'dismissed' => (int)$r['dismissed'], 'open' => (int)$r['found'] - (int)$r['accepted'] - (int)$r['dismissed']],
             QueryUtils::fetchRecords(
                 "SELECT f.check_no, f.direction, COUNT(*) AS found,
                         SUM(f.cleared_at IS NOT NULL AND NOT $dismissed) AS accepted, SUM($dismissed) AS dismissed
                    FROM revenue_cycle_flag AS f
-                  WHERE f.first_seen >= ? AND f.first_seen < ?
+                  WHERE f.first_seen >= ? AND f.first_seen < ? AND ($live)
                   GROUP BY f.check_no, f.direction ORDER BY f.check_no, f.direction",
                 [$from, $to]
             ));

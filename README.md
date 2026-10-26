@@ -1,6 +1,6 @@
 # Revenue Cycle
 
-> **Status: 0.1.1, a pre-release.** Tested on OpenEMR 8.4.1 and master with synthetic data only.
+> **Status: 0.1.2, a pre-release.** Tested on OpenEMR 8.4.1 and master with synthetic data only.
 
 A charge review inside the clinic, before claims go out: care in the record that no charge bills, and charges the record doesn't support. Both directions, from the first version, because an internal audit that only ever finds money reads like a revenue tool, and one that finds both reads like what the HHS Office of Inspector General asks for: "regular internal billing and coding audits".
 

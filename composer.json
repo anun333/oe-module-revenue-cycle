@@ -13,7 +13,7 @@
     "homepage": "https://github.com/anun333/oe-module-revenue-cycle",
     "require": {
         "php": ">=8.2",
-        "anun333/openhealthcare-common": "^1.1",
+        "anun333/openhealthcare-common": "^1.3",
         "openemr/oe-module-installer-plugin": "^0.1.5"
     },
     "require-dev": {
