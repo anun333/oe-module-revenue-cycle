@@ -56,19 +56,29 @@ final class VisitSourceTest extends TestCase
     public function testAChargeIsPricedFromTheRowCoresFeeSheetLookupPicks(): void
     {
         QueryUtils::$results = [[['pr_price' => '44.00']]];
-        $this->assertSame(44.0, (new VisitSource())->price('CPT4', '92015', 'standard'));
+        $this->assertSame(44.0, (new VisitSource())->price('CPT4', '92015', 7));
         $sql = QueryUtils::$calls[0]['sql'];
         $this->assertStringContainsString('ORDER BY c.active DESC, c.modifier, c.id LIMIT 1', $sql);
         $this->assertStringContainsString('LEFT JOIN prices', $sql, 'the row is chosen first, then its price');
         $this->assertStringNotContainsString("c.modifier = ''", $sql, 'a code whose only row has a modifier (JZ) still has a price');
-        $this->assertSame(['standard', 'CPT4', '92015'], QueryUtils::$calls[0]['binds']);
+    }
+
+    public function testAChargeIsPricedAtThePatientsOwnPriceLevel(): void
+    {
+        QueryUtils::$results = [[['pr_price' => '30.00']]];
+        $this->assertSame(30.0, (new VisitSource())->price('CPT4', '92015', 7));
+        $sql = QueryUtils::$calls[0]['sql'];
+        $this->assertStringContainsString('LEFT JOIN patient_data AS pd ON pd.pid = ?', $sql, "the patient's row, as core's lookup joins it");
+        $this->assertStringContainsString('p.pr_level = pd.pricelevel', $sql, "the patient's level, not a fixed one");
+        $this->assertStringNotContainsString("'standard'", $sql);
+        $this->assertSame([7, 'CPT4', '92015'], QueryUtils::$calls[0]['binds']);
     }
 
     public function testThatRowWithoutAPriceIsNoPrice(): void
     {
         QueryUtils::$results = [[['pr_price' => null]]];
-        $this->assertNull((new VisitSource())->price('CPT4', '92015', 'standard'));
-        $this->assertNull((new VisitSource())->price('CPT4', '00000', 'standard'), 'no row at all');
+        $this->assertNull((new VisitSource())->price('CPT4', '92015', 7), 'no price at the patient\'s level');
+        $this->assertNull((new VisitSource())->price('CPT4', '00000', 7), 'no row at all');
     }
 
     public function testTheLookBackCountsOnlyFlagsWhoseVisitIsThere(): void

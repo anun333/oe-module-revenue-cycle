@@ -85,7 +85,7 @@ final class ChargeReview
 
     /**
      * The look-back: flags on billed visits in the period, both directions, each with the charge it concerns from
-     * the clinic's own fee schedule (a charge, not an expected payment) and, for a missed charge, the days left in
+     * the clinic's own fee schedule at the patient's own price level (a charge, not an expected payment) and, for a missed charge, the days left in
      * the year a Medicare claim can still be corrected.
      *
      * @return list<array{flag: Flag, visit: Visit, amount: ?float, daysLeft: ?int}>
@@ -102,9 +102,9 @@ final class ChargeReview
                     $amount = array_sum(array_map(fn($l): float => $l->fee, array_filter($visit->lines, fn($l): bool => in_array($l->id, $flag->lineIds, true))));
                 } elseif ($flag->kind === Flag::VACCINE_NO_PRODUCT) {
                     $product = $rules->vaccines[$flag->args[0]] ?? null;
-                    $amount = $product === null ? null : $this->visits->price($product['type'], $product['code'], 'standard');
+                    $amount = $product === null ? null : $this->visits->price($product['type'], $product['code'], $visit->pid);
                 } elseif ($flag->kind === Flag::TEST_NOT_BILLED) {
-                    $amount = $this->visits->price('CPT4', $flag->args[0], 'standard') ?? $this->visits->price('HCPCS', $flag->args[0], 'standard');
+                    $amount = $this->visits->price('CPT4', $flag->args[0], $visit->pid) ?? $this->visits->price('HCPCS', $flag->args[0], $visit->pid);
                 }
                 $age = (int)$today->diff(new \DateTimeImmutable($visit->date))->format('%a');
                 $out[] = ['flag' => $flag, 'visit' => $visit, 'amount' => $amount,

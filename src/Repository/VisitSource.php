@@ -187,20 +187,24 @@ final class VisitSource
     }
 
     /**
-     * The clinic's fee for a code at a price level, from its own fee schedule, or null when it has none. The code's
-     * row is the one core's fee sheet lookup picks since #14719 (src/Billing/FeeSheetChargeLookup.php, row():
-     * ORDER BY c.active DESC, c.modifier, c.id): an active row first, then the one without a modifier, then the
-     * oldest. With several rows for a code (an old inactive one, one with JZ) it used to take whichever came first.
-     * When that row has no price at the level, there is none: the fee sheet would charge none either.
+     * The clinic's fee for a code to this patient, from its own fee schedule, or null when it has none. The price is
+     * at the patient's own price level (patient_data.pricelevel), as the fee sheet charges a new line on 8.4.1
+     * (FeeSheet::addServiceLineItem()) and as core's lookup does on master (src/Billing/FeeSheetChargeLookup.php,
+     * which joins patient_data the same way); 0.1.3 and earlier priced every patient at "standard". The code's row
+     * is the one that lookup picks since #14719 (ORDER BY c.active DESC, c.modifier, c.id): an active row first, then
+     * the one without a modifier, then the oldest. When that row has no price at the patient's level, there is none:
+     * the fee sheet would charge none either. A percentage level (Billing > enable_percent_pricing) isn't applied,
+     * as core's lookup doesn't apply it.
      */
-    public function price(string $codeType, string $code, string $level): ?float
+    public function price(string $codeType, string $code, int $pid): ?float
     {
         $row = QueryUtils::fetchRecords(
             "SELECT p.pr_price FROM codes AS c JOIN code_types AS ct ON ct.ct_id = c.code_type
-               LEFT JOIN prices AS p ON p.pr_id = c.id AND p.pr_selector = '' AND p.pr_level = ?
+               LEFT JOIN patient_data AS pd ON pd.pid = ?
+               LEFT JOIN prices AS p ON p.pr_id = c.id AND p.pr_selector = '' AND p.pr_level = pd.pricelevel
               WHERE ct.ct_key = ? AND c.code = ?
               ORDER BY c.active DESC, c.modifier, c.id LIMIT 1",
-            [$level, $codeType, $code]
+            [$pid, $codeType, $code]
         )[0] ?? null;
         return $row === null || !is_numeric($row['pr_price'] ?? null) ? null : (float)$row['pr_price'];
     }
@@ -214,12 +218,12 @@ final class VisitSource
         $out = [];
         foreach (array_chunk($encounters, self::CHUNK) as $chunk) {
             foreach (QueryUtils::fetchRecords(
-                'SELECT id, encounter, code_type, code, modifier, units, fee, justify FROM billing
+                'SELECT id, encounter, code_type, code, modifier, units, fee, justify, ndc_info FROM billing
                   WHERE activity = 1 AND encounter IN (' . self::marks($chunk) . ') ORDER BY id',
                 $chunk
             ) as $r) {
                 $out[(int)$r['encounter']][] = new Line((int)$r['id'], (string)$r['code_type'], trim((string)$r['code']), trim((string)($r['modifier'] ?? '')),
-                    max(1, (int)$r['units']), (float)$r['fee'], (string)($r['justify'] ?? ''));
+                    max(1, (int)$r['units']), (float)$r['fee'], (string)($r['justify'] ?? ''), trim((string)($r['ndc_info'] ?? '')));
             }
         }
         return $out;
