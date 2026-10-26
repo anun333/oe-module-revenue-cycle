@@ -20,6 +20,7 @@ use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Common\Database\QueryUtils;
 use OpenEMR\Core\Header;
 use OpenHealthcare\Common\OpenEmr;
+use OpenHealthcare\RevenueCycle\Http\Guide;
 use OpenHealthcare\RevenueCycle\Http\Request;
 use OpenHealthcare\RevenueCycle\Repository\Settings;
 use OpenHealthcare\RevenueCycle\Repository\VisitSource;
@@ -87,7 +88,7 @@ $rows = $vaccineList + array_fill_keys(array_map(fn(array $r): string => trim((s
 <body class="body_top">
 <main class="container-fluid py-3" style="max-width: 70rem">
     <h1 class="h4"><?php echo xlt('Revenue Cycle settings'); ?></h1>
-    <p><a href="index.php"><?php echo xlt('Back to the charge review'); ?></a></p>
+    <p><a href="index.php"><?php echo xlt('Back to the charge review'); ?></a> · <a href="<?php echo attr(Guide::url()); ?>" target="_blank" rel="noopener"><?php echo xlt('Help'); ?><span class="sr-only"> <?php echo xlt('(opens in a new window)'); ?></span></a></p>
     <?php if ($saved) : ?>
         <div class="alert alert-success"><?php echo xlt('Saved.'); ?></div>
     <?php endif; ?>

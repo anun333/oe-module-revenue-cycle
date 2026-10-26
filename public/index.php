@@ -20,6 +20,7 @@ use OpenEMR\Common\Database\QueryUtils;
 use OpenEMR\Core\Header;
 use OpenHealthcare\Common\OpenEmr;
 use OpenHealthcare\RevenueCycle\Domain\Flag;
+use OpenHealthcare\RevenueCycle\Http\Guide;
 use OpenHealthcare\RevenueCycle\Http\Request;
 use OpenHealthcare\RevenueCycle\Labels;
 use OpenHealthcare\RevenueCycle\Review\ChargeReview;
@@ -71,7 +72,7 @@ $money = fn(?float $a): string => $a === null ? '' : number_format($a, 2);
 <main class="container-fluid py-3" style="max-width: 80rem">
     <h1 class="h4"><?php echo xlt('Revenue Cycle: charge review'); ?></h1>
     <p><?php echo xlt('Visits not yet billed are checked in the Staff Worklist, on the Charges to check tab. This page looks back over visits already billed, in both directions: care in the record that no charge bills, and charges the record does not support.'); ?>
-        <a href="settings.php"><?php echo xlt('Settings'); ?></a></p>
+        <a href="settings.php"><?php echo xlt('Settings'); ?></a> · <a href="<?php echo attr(Guide::url()); ?>" target="_blank" rel="noopener"><?php echo xlt('Help'); ?><span class="sr-only"> <?php echo xlt('(opens in a new window)'); ?></span></a></p>
 
     <form method="get" class="form-inline mb-3">
         <label for="from" class="mr-2"><?php echo xlt('From'); ?></label>

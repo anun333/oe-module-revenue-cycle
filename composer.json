@@ -40,7 +40,12 @@
             "footprint-not-covered": [
                 "Whether the permission checks above behave correctly for restricted users. They aren't yet checked end to end with a restricted login.",
                 "Whether the checks fit a clinic's billing: they're checked on 8.4.1 and master with planted visits, one per check plus the visits that must stay quiet, not on a clinic's own records."
-            ]
+            ],
+            "guide-labels-elsewhere": {
+                "Missed charge": "src/Labels.php",
+                "Charge with nothing behind it": "src/Labels.php",
+                "Claim quality": "src/Labels.php"
+            }
         }
     }
 }
