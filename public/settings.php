@@ -21,6 +21,7 @@ use OpenEMR\Common\Database\QueryUtils;
 use OpenEMR\Core\Header;
 use OpenHealthcare\Common\OpenEmr;
 use OpenHealthcare\RevenueCycle\Http\Guide;
+use OpenHealthcare\RevenueCycle\Http\Page;
 use OpenHealthcare\RevenueCycle\Http\Request;
 use OpenHealthcare\RevenueCycle\Repository\Settings;
 use OpenHealthcare\RevenueCycle\Repository\VisitSource;
@@ -79,7 +80,7 @@ $rows = $vaccineList + array_fill_keys(array_map(fn(array $r): string => trim((s
 ?>
 <!DOCTYPE html>
 <?php // The module's own text is written in English. ?>
-<html lang="en">
+<html lang="<?php echo attr(Page::lang()); ?>" dir="<?php echo attr(Page::dir()); ?>">
 <head>
     <meta charset="utf-8">
     <title><?php echo xlt('Revenue Cycle settings'); ?></title>
@@ -131,16 +132,16 @@ $rows = $vaccineList + array_fill_keys(array_map(fn(array $r): string => trim((s
         <h2 class="h5 mt-4"><?php echo xlt('Your vaccine list'); ?></h2>
         <p><?php echo xlt('Each vaccine you stock, by its CVX code, with the code of the product line you bill for it. A vaccine given here with no line for its product is flagged; one not on this list is not, since only you know what you bill for it. The rows with no code yet are vaccines given here since the start date.'); ?></p>
         <table class="table table-sm" style="max-width: 40rem">
-            <thead><tr><th><?php echo xlt('CVX'); ?></th><th><?php echo xlt('Code type'); ?></th><th><?php echo xlt('Product code'); ?></th></tr></thead>
+            <thead><tr><th scope="col"><?php echo xlt('CVX'); ?></th><th scope="col"><?php echo xlt('Code type'); ?></th><th scope="col"><?php echo xlt('Product code'); ?></th></tr></thead>
             <tbody>
             <?php $i = 0; foreach ($rows + ['' => ['type' => 'CPT4', 'code' => '']] as $cvx => $product) : ?>
                 <tr>
-                    <td><input class="form-control form-control-sm" name="vaccine_cvx[<?php echo attr((string)$i); ?>]" value="<?php echo attr((string)$cvx); ?>" maxlength="3"></td>
-                    <td><select class="form-control form-control-sm" name="vaccine_type[<?php echo attr((string)$i); ?>]">
+                    <td><input class="form-control form-control-sm" name="vaccine_cvx[<?php echo attr((string)$i); ?>]" aria-label="<?php echo attr(sprintf(xl('CVX code, row %d'), $i + 1)); ?>" value="<?php echo attr((string)$cvx); ?>" maxlength="3"></td>
+                    <td><select class="form-control form-control-sm" name="vaccine_type[<?php echo attr((string)$i); ?>]" aria-label="<?php echo attr(sprintf(xl('Code type, row %d'), $i + 1)); ?>">
                         <?php foreach (['CPT4', 'HCPCS'] as $t) : ?>
                             <option value="<?php echo attr($t); ?>"<?php echo $product['type'] === $t ? ' selected' : ''; ?>><?php echo text($t); ?></option>
                         <?php endforeach; ?></select></td>
-                    <td><input class="form-control form-control-sm" name="vaccine_code[<?php echo attr((string)$i); ?>]" value="<?php echo attr($product['code']); ?>" maxlength="5"></td>
+                    <td><input class="form-control form-control-sm" name="vaccine_code[<?php echo attr((string)$i); ?>]" aria-label="<?php echo attr(sprintf(xl('Product code, row %d'), $i + 1)); ?>" value="<?php echo attr($product['code']); ?>" maxlength="5"></td>
                 </tr>
                 <?php $i++; ?>
             <?php endforeach; ?>

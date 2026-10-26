@@ -21,6 +21,7 @@ use OpenEMR\Core\Header;
 use OpenHealthcare\Common\OpenEmr;
 use OpenHealthcare\RevenueCycle\Domain\Flag;
 use OpenHealthcare\RevenueCycle\Http\Guide;
+use OpenHealthcare\RevenueCycle\Http\Page;
 use OpenHealthcare\RevenueCycle\Http\Request;
 use OpenHealthcare\RevenueCycle\Labels;
 use OpenHealthcare\RevenueCycle\Review\ChargeReview;
@@ -61,7 +62,7 @@ $money = fn(?float $a): string => $a === null ? '' : number_format($a, 2);
 ?>
 <!DOCTYPE html>
 <?php // The module's own text is written in English. ?>
-<html lang="en">
+<html lang="<?php echo attr(Page::lang()); ?>" dir="<?php echo attr(Page::dir()); ?>">
 <head>
     <meta charset="utf-8">
     <title><?php echo xlt('Revenue Cycle'); ?></title>

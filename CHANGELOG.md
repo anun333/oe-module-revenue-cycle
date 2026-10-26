@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6 (unreleased)
+
+- **The vaccine list's fields have names a screen reader can read.** Each row's CVX code, code type and product code field is named with its column and row ("CVX code, row 2"), and the table's headers are marked as column headers. They had none, so a screen reader announced bare edit fields.
+- **Pages declare the user's language.** Each page's `lang` and `dir` follow the signed-in user's OpenEMR language (openhealthcare-common 1.4.0), falling back to English where an older copy of the library was loaded first.
+- **The CC0 text ships with the module:** [LICENSES/CC0-1.0.txt](LICENSES/CC0-1.0.txt), for the labels in `data/codes.json`, which the README already marked CC0.
+- Requires openhealthcare-common 1.4.0. The README notes that hand-copied modules need their libraries at one version.
+
 ## 0.1.5 (2026-10-26)
 
 - **Fixed: a vaccine recorded without choosing a visit got a false flag.** OpenEMR's Immunizations screen lets the visit be left empty. Such a vaccine was never matched to a visit, so its product and administration lines were flagged "billed with none given" (check 4), and check 2 never saw it. A vaccine given here with no visit chosen now counts toward the visit the patient had that day, when there was exactly one; on a day with two visits it's left unplaced rather than guessed. Our UDS module joins such records to a same-day visit the same way.

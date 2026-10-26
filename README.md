@@ -51,7 +51,7 @@ From the OpenEMR directory:
 composer require anun333/oe-module-revenue-cycle
 ```
 
-The installer plugin places it in `interface/modules/custom_modules/oe-module-revenue-cycle/`, and Composer brings [openhealthcare-common](https://github.com/anun333/openhealthcare-common) with it. Without Composer, copy this directory there and run `composer install --no-dev` in it, which puts openhealthcare-common in its own `vendor/`; the module stays switched off until it finds that package one way or the other.
+The installer plugin places it in `interface/modules/custom_modules/oe-module-revenue-cycle/`, and Composer brings [openhealthcare-common](https://github.com/anun333/openhealthcare-common) with it. Without Composer, copy this directory there and run `composer install --no-dev` in it, which puts openhealthcare-common in its own `vendor/`; the module stays switched off until it finds that package one way or the other. If you copy several of our modules in by hand, keep their `vendor/openhealthcare-common` at the same version: OpenEMR loads the first copy it finds for all of them.
 
 Then go to Modules › Manage Modules › Unregistered, and **Register**, **Install** and **Enable** it. Open **Revenue Cycle** › Settings, fill in your vaccine list and the in-clinic provider, and save. The Charges to check tab needs the Staff Worklist.
 
@@ -84,4 +84,4 @@ See [openhealthcare-common](https://github.com/anun333/openhealthcare-common) fo
 
 ## License
 
-GPL-3.0-or-later, as OpenEMR. See [LICENSE](LICENSE).
+GPL-3.0-or-later, as OpenEMR. See [LICENSE](LICENSE). The labels we wrote in `data/codes.json` are CC0 1.0: see [LICENSES/CC0-1.0.txt](LICENSES/CC0-1.0.txt).
