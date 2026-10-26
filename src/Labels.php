@@ -34,6 +34,7 @@ final class Labels
             Flag::SAME_CODE_TWICE => '%1$s on %2$s lines; units would carry a count',
             Flag::MODIFIER_25_ALONE => '%s with modifier 25, and no other service on the visit',
             Flag::NO_DIAGNOSIS => '%s has no diagnosis pointer',
+            Flag::J_CODE_NO_NDC => '%s, a drug billed by its J code, has no NDC',
         };
         return vsprintf($translate($template), $flag->args);
     }

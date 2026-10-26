@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Checks 1 to 7 of the charge review (docs/products/revenue-cycle/charge-review-plan-2026-10.md in the openhealthcare
+ * Checks 1 to 8 of the charge review (docs/products/revenue-cycle/charge-review-plan-2026-10.md in the openhealthcare
  * workspace), on one visit at a time. Each missed-charge check has a mirror for a charge with nothing behind it, so
  * both directions are found from the first version. Nothing here needs a licensed table.
  *
@@ -99,6 +99,15 @@ final class ChargeChecks
         foreach ($services as $line) {
             if (in_array($line->codeType, $this->rules->justifiedTypes, true) && trim($line->justify, " :\t") === '') {
                 $flags[] = new Flag(Flag::NO_DIAGNOSIS, $v->encounter, $v->pid, "line:{$line->id}", [$line->code], [$line->id]);
+            }
+        }
+
+        // 8. A drug billed by its J code with no NDC the claim would carry. Core's fee sheet asks for an NDC on HCPCS
+        // lines; Medicaid programs need it on physician-administered drugs to claim rebates (Social Security Act
+        // 1927(a)(7)), and other payers often deny the line without it.
+        foreach ($services as $line) {
+            if ($line->codeType === 'HCPCS' && stripos($line->code, 'J') === 0 && !$line->hasNdc()) {
+                $flags[] = new Flag(Flag::J_CODE_NO_NDC, $v->encounter, $v->pid, "line:{$line->id}", [$line->code], [$line->id]);
             }
         }
         return $flags;

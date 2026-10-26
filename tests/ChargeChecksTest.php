@@ -99,6 +99,26 @@ final class ChargeChecksTest extends TestCase
         self::assertSame([Flag::NO_DIAGNOSIS], array_map(fn(Flag $f): string => $f->kind, $emptied), 'a pointer emptied to its separator is still none');
     }
 
+    public function testCheck8FindsAJCodeDrugLineWithNoNdcTheClaimWouldCarry(): void
+    {
+        $flags = $this->checks->visit($this->visit(lines: [
+            $this->line(1, '99213'),
+            $this->line(2, 'J1885', ndc: ''),
+            $this->line(3, 'J3420', ndc: 'N400409487501   ML1'),
+            $this->line(4, 'J0696', ndc: '00409487501'),
+            $this->line(5, 'G0008', ndc: ''),
+        ], vaccines: ['141']), $this->today);
+        $ndc = array_values(array_filter($flags, fn(Flag $f): bool => $f->kind === Flag::J_CODE_NO_NDC));
+        self::assertSame([[2], [4]], array_map(fn(Flag $f): array => $f->lineIds, $ndc),
+            'no NDC, and an NDC without the N4 format core writes on the claim; a J-code with one, and a G-code, are fine');
+        self::assertSame(['J1885'], $ndc[0]->args);
+        self::assertSame([8, Flag::QUALITY], [$ndc[0]->check(), $ndc[0]->direction()]);
+        self::assertSame([], $this->kinds($this->visit(lines: [$this->line(1, 'J1885', '', 'CPT4')])),
+            'only HCPCS lines: core asks for an NDC on those, and only those');
+        self::assertSame([Flag::J_CODE_NO_NDC], $this->kinds($this->visit(lines: [$this->line(1, 'j3490', '', 'HCPCS', ndc: 'N4 ')])),
+            'a code typed in lower case, and an NDC field left with only its prefix');
+    }
+
     public function testAFlagKeepsItsKeyAndCarriesItsDirection(): void
     {
         $a = $this->checks->visit($this->visit(lines: [$this->line(1, '99214', '25')]), $this->today)[0];
@@ -132,10 +152,10 @@ final class ChargeChecksTest extends TestCase
         return new Visit(501, 7, $date, $category, 'normal', 3, 2, $documented, false, $lines, $vaccines, $tests);
     }
 
-    private function line(int $id, string $code, string $modifier = '', ?string $type = null, string $justify = 'ICD10|Z00.00:'): Line
+    private function line(int $id, string $code, string $modifier = '', ?string $type = null, string $justify = 'ICD10|Z00.00:', string $ndc = ''): Line
     {
-        $type ??= str_starts_with($code, 'G') ? 'HCPCS' : 'CPT4';
-        return new Line($id, $type, $code, $modifier, 1, 100.0, $justify);
+        $type ??= preg_match('/^[GJ]/', $code) === 1 ? 'HCPCS' : 'CPT4';
+        return new Line($id, $type, $code, $modifier, 1, 100.0, $justify, $ndc);
     }
 
     /** @return list<string> */
