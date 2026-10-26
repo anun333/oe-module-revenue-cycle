@@ -17,7 +17,7 @@ A charge review inside the clinic, before claims go out: care in the record that
   8. a drug billed by its J code with no NDC the claim would carry (Medicaid needs it on drugs given in the clinic).
 - **The queue** is a "Charges to check" tab in the [Staff Worklist](https://github.com/anun333/oe-module-staff-worklist), for whoever bills. Each item says what was found and opens the visit. Accept by fixing the fee sheet; the flag clears on its own. Dismiss with a reason, which the Worklist logs.
 - **The look-back** runs the same checks over visits already billed, both directions, with each charge from the clinic's own fee schedule at the patient's own price level and, for a missed charge, the days left in the year a Medicare claim can be corrected. It counts what became of every flag: accepted, dismissed or open, by check and direction.
-- **Settings:** when the review starts, how many days coding gets, the visit categories never billed, the procedure provider whose tests are run in the clinic, and the clinic's vaccine list (each CVX with the product code it bills). The vaccine rows start from what was given here.
+- **Settings:** when the review starts, how many days coding gets, the visit categories never billed, the procedure provider whose tests are run in the clinic, the clinic's vaccine list (each CVX with the product code it bills), and whether check 8 runs (on unless turned off, for a site that bills no payer needing NDCs). The vaccine rows start from what was given here.
 
 - **A staff guide**, [GUIDE.md](GUIDE.md), task by task for the biller, whoever reviews billing, and the administrator. **Help** on each page opens it at the installed version.
 
@@ -31,6 +31,10 @@ A charge review inside the clinic, before claims go out: care in the record that
 ## Who can open what
 
 The page, the settings and the Worklist tab need OpenEMR's billing permission (`acct/bill`). A visit marked with a sensitivity shows only to users core's own sensitivity check allows. Viewing the look-back and saving settings are in the audit log.
+
+## Known limits
+
+- **Percentage price levels aren't applied.** OpenEMR 8.4.1's fee sheet applies a percentage price level when Billing's `enable_percent_pricing` is on; master's lookup (`FeeSheetChargeLookup`) doesn't. The look-back follows master, so on 8.4.1 a patient on a percentage level shows no amount for a missed charge.
 
 ## Not done yet
 

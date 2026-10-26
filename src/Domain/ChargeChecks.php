@@ -104,10 +104,12 @@ final class ChargeChecks
 
         // 8. A drug billed by its J code with no NDC the claim would carry. Core's fee sheet asks for an NDC on HCPCS
         // lines; Medicaid programs need it on physician-administered drugs to claim rebates (Social Security Act
-        // 1927(a)(7)), and other payers often deny the line without it.
-        foreach ($services as $line) {
-            if ($line->codeType === 'HCPCS' && stripos($line->code, 'J') === 0 && !$line->hasNdc()) {
-                $flags[] = new Flag(Flag::J_CODE_NO_NDC, $v->encounter, $v->pid, "line:{$line->id}", [$line->code], [$line->id]);
+        // 1927(a)(7)), and other payers often deny the line without it. A site that bills no such payer turns it off.
+        if ($this->rules->checkNdc) {
+            foreach ($services as $line) {
+                if ($line->codeType === 'HCPCS' && stripos($line->code, 'J') === 0 && !$line->hasNdc()) {
+                    $flags[] = new Flag(Flag::J_CODE_NO_NDC, $v->encounter, $v->pid, "line:{$line->id}", [$line->code], [$line->id]);
+                }
             }
         }
         return $flags;

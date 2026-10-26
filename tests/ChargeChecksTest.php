@@ -119,6 +119,25 @@ final class ChargeChecksTest extends TestCase
             'a code typed in lower case, and an NDC field left with only its prefix');
     }
 
+    public function testCheck8RunsOnlyWhileTheSiteHasItOn(): void
+    {
+        $codes = json_decode((string)file_get_contents(dirname(__DIR__) . '/data/codes.json'), true);
+        $rules = fn(?bool $checkNdc): Rules => new Rules(...[
+            'serviceTypes' => ['CPT4', 'HCPCS'],
+            'justifiedTypes' => ['CPT4', 'HCPCS'],
+            'vaccines' => [],
+            'administration' => array_map(fn(array $c): array => ['type' => $c['type'], 'code' => $c['code']], $codes['vaccineAdministration']['codes']),
+            'visitLevel' => $codes['visitLevel']['ranges'],
+            'neverBillable' => [],
+            'daysToBill' => 3,
+        ] + ($checkNdc === null ? [] : ['checkNdc' => $checkNdc]));
+        $visit = $this->visit(lines: [$this->line(1, '99213'), $this->line(2, 'J1885', '', 'HCPCS', ndc: '')]);
+        $kinds = fn(?bool $checkNdc): array => array_map(fn(Flag $f): string => $f->kind, (new ChargeChecks($rules($checkNdc)))->visit($visit, $this->today));
+        self::assertSame([Flag::J_CODE_NO_NDC], $kinds(true));
+        self::assertSame([], $kinds(false), 'turned off, the line is not flagged');
+        self::assertSame([Flag::J_CODE_NO_NDC], $kinds(null), 'on unless the site turns it off');
+    }
+
     public function testAFlagKeepsItsKeyAndCarriesItsDirection(): void
     {
         $a = $this->checks->visit($this->visit(lines: [$this->line(1, '99214', '25')]), $this->today)[0];

@@ -23,6 +23,7 @@ final class Settings
     public const NEVER_BILLABLE = 'never_billable';
     public const IN_CLINIC_LABS = 'in_clinic_labs';
     public const VACCINES = 'vaccines';
+    public const CHECK_NDC = 'check_ndc';
 
     /** @var array<string, mixed>|null */
     private ?array $values = null;
@@ -50,6 +51,12 @@ final class Settings
     public function inClinicLabs(): array
     {
         return self::ints($this->all()[self::IN_CLINIC_LABS] ?? []);
+    }
+
+    /** Whether check 8 runs (a J-code drug line with no NDC): on until the site turns it off. */
+    public function checkNdc(): bool
+    {
+        return ($this->all()[self::CHECK_NDC] ?? true) !== false;
     }
 
     /** @return array<string, array{type: string, code: string}> the clinic's vaccine list: CVX => the product line it bills */

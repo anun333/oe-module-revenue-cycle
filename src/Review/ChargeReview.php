@@ -44,6 +44,7 @@ final class ChargeReview
             visitLevel: array_map(fn(array $r): array => ['type' => (string)$r['type'], 'from' => (string)$r['from'], 'to' => (string)$r['to']], $codes['visitLevel']['ranges']),
             neverBillable: $this->settings->neverBillable(),
             daysToBill: $this->settings->daysToBill(),
+            checkNdc: $this->settings->checkNdc(),
         );
     }
 

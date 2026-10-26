@@ -24,6 +24,7 @@ final class Rules
      * @param list<array{type: string, from: string, to: string}> $visitLevel          visit codes modifier 25 attaches to
      * @param list<int>                                          $neverBillable       visit categories that are never billed (a phone note, a chart update)
      * @param int                                                $daysToBill          how long after a visit before "seen and not billed" counts
+     * @param bool                                               $checkNdc            whether check 8 runs (a site billing no payer that needs NDCs turns it off)
      */
     public function __construct(
         public readonly array $serviceTypes,
@@ -33,6 +34,7 @@ final class Rules
         public readonly array $visitLevel,
         public readonly array $neverBillable,
         public readonly int $daysToBill = 3,
+        public readonly bool $checkNdc = true,
     ) {
     }
 

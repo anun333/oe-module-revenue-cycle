@@ -44,6 +44,7 @@ if ($request->isMethod('POST')) {
     $settings->save(Settings::DAYS_TO_BILL, max(0, min(60, $request->request->getInt('days_to_bill', 3))), $user);
     $settings->save(Settings::NEVER_BILLABLE, array_map('intval', $request->request->all('never_billable')), $user);
     $settings->save(Settings::IN_CLINIC_LABS, array_map('intval', $request->request->all('in_clinic_labs')), $user);
+    $settings->save(Settings::CHECK_NDC, $request->request->has('check_ndc'), $user);
     $vaccines = [];
     $cvx = $request->request->all('vaccine_cvx');
     $types = $request->request->all('vaccine_type');
@@ -103,6 +104,11 @@ $rows = $vaccineList + array_fill_keys(array_map(fn(array $r): string => trim((s
                 <label for="days_to_bill"><?php echo xlt('Days coding gets before a visit counts as not billed'); ?></label>
                 <input type="number" min="0" max="60" class="form-control" id="days_to_bill" name="days_to_bill" value="<?php echo attr((string)$settings->daysToBill()); ?>">
             </div>
+        </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="check_ndc" name="check_ndc" value="1" aria-describedby="check_ndc_help"<?php echo $settings->checkNdc() ? ' checked' : ''; ?>>
+            <label class="form-check-label" for="check_ndc"><?php echo xlt('Check drug J-code lines for an NDC (check 8)'); ?></label>
+            <small id="check_ndc_help" class="form-text text-muted"><?php echo xlt('Turn this off if no payer you bill needs an NDC on drug lines.'); ?></small>
         </div>
         <div class="row">
             <fieldset class="col-md-6">

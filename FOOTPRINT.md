@@ -96,9 +96,9 @@ As written in the source; whether they behave correctly for a given user is not 
 
 | part | files | lines |
 |---|---|---|
-| PHP logic (`src/`) | 15 | 1308 |
-| tests (`tests/`, `phpunit.xml.dist`) | 10 | 514 |
-| pages (`public/`) | 2 | 271 |
+| PHP logic (`src/`) | 15 | 1320 |
+| tests (`tests/`, `phpunit.xml.dist`) | 11 | 569 |
+| pages (`public/`) | 2 | 277 |
 | module wiring | 5 | 164 |
 | install SQL (`sql/`) | 1 | 37 |
 | tools (`tools/`) | 1 | 31 |

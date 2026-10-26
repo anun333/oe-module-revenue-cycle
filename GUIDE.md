@@ -59,9 +59,10 @@ On check 8: Medicaid needs the NDC on drugs given in the clinic, and other payer
 3. **Visit categories never billed (a phone note, a chart update)**: visits in these categories are never flagged.
 4. **Procedure providers whose tests are run in the clinic**: their orders feed checks 3 and 4.
 5. **Your vaccine list**: each vaccine you stock by **CVX**, with the **Code type** and **Product code** of the line you bill for it. A vaccine given here that isn't on the list is never flagged.
-6. Choose **Save**. **Back to the charge review** returns to the look-back.
+6. **Check drug J-code lines for an NDC (check 8)**: on unless you turn it off. Turn it off if no payer you bill needs an NDC on drug lines; the lines are then never flagged for it.
+7. Choose **Save**. **Back to the charge review** returns to the look-back.
 
-Patients' price levels and the prices at each level are OpenEMR's own: the price level on the patient's Demographics, and the fee schedule's prices by level.
+Patients' price levels and the prices at each level are OpenEMR's own: the price level on the patient's Demographics, and the fee schedule's prices by level. A percentage price level isn't applied: a patient on one shows no amount in the look-back (see the README's known limits).
 
 ### Find this guide
 
