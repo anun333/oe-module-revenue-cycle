@@ -5,7 +5,9 @@
  *
  * Documented: a form on the visit other than the visit form itself, or an e-signature on the visit or one of its
  * forms. Claimed: a claims row, or a fee sheet line already billed. A vaccine given here: the record OpenEMR makes
- * for one (information source "new immunization record"), not a history entry, an error or a refusal.
+ * for one (information source "new immunization record"), not a history entry, an error or a refusal. A vaccine
+ * recorded without choosing a visit (the Immunizations screen's visit select is optional) belongs to the visit the
+ * patient had that day, when there was exactly one.
  *
  * @package   OpenEMR
  * @link      https://www.open-emr.org
@@ -26,6 +28,11 @@ use OpenHealthcare\RevenueCycle\Domain\Visit;
 final class VisitSource
 {
     private const CHUNK = 500;
+
+    /** An immunizations row that records a vaccine given here (the `i` alias). */
+    private const GIVEN = "i.information_source = 'new_immunization_record' AND COALESCE(i.added_erroneously, 0) = 0
+                    AND COALESCE(i.refusal_reason, '') = '' AND COALESCE(i.completion_status, '') NOT IN ('Not_Administered', 'Refused')
+                    AND i.cvx_code <> ''";
 
     /**
      * SQL that's true while the visit under this form_encounter alias is there. Core's deleter removes the
@@ -75,6 +82,9 @@ final class VisitSource
         $encounters = array_map(fn(array $r): int => (int)$r['encounter'], $rows);
         $lines = $this->lines($encounters);
         $vaccines = $this->vaccines($encounters);
+        foreach ($this->sameDayVaccines($rows, $from, $to) as $e => $codes) {
+            $vaccines[$e] = [...($vaccines[$e] ?? []), ...$codes];
+        }
         $tests = $inClinicLabs === [] ? [] : $this->tests($encounters, $inClinicLabs);
         $out = [];
         foreach ($rows as $r) {
@@ -238,13 +248,77 @@ final class VisitSource
         $out = [];
         foreach (array_chunk($encounters, self::CHUNK) as $chunk) {
             foreach (QueryUtils::fetchRecords(
-                "SELECT encounter_id, cvx_code FROM immunizations
-                  WHERE information_source = 'new_immunization_record' AND COALESCE(added_erroneously, 0) = 0
-                    AND COALESCE(refusal_reason, '') = '' AND COALESCE(completion_status, '') NOT IN ('Not_Administered', 'Refused')
-                    AND cvx_code <> '' AND encounter_id IN (" . self::marks($chunk) . ')',
+                'SELECT i.encounter_id, i.cvx_code FROM immunizations AS i
+                  WHERE ' . self::GIVEN . ' AND i.encounter_id IN (' . self::marks($chunk) . ')',
                 $chunk
             ) as $r) {
                 $out[(int)$r['encounter_id']][] = trim((string)$r['cvx_code']);
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Vaccines given in the window with no visit chosen, each placed on the patient's visit that day when there was
+     * exactly one (counting every visit that day, not only the ones listed). Our UDS module joins such records to a
+     * same-day visit too; here a day with two visits places none, since a flag on the wrong visit is worse than none.
+     *
+     * @param list<array<string, mixed>> $rows the listed visits
+     * @return array<int, list<string>> encounter => CVX codes
+     */
+    private function sameDayVaccines(array $rows, string $from, string $to): array
+    {
+        $pids = array_values(array_unique(array_map(fn(array $r): int => (int)$r['pid'], $rows)));
+        $unlinked = [];
+        foreach (array_chunk($pids, self::CHUNK) as $chunk) {
+            foreach (QueryUtils::fetchRecords(
+                'SELECT i.patient_id, DATE(i.administered_date) AS day, i.cvx_code FROM immunizations AS i
+                  WHERE ' . self::GIVEN . ' AND COALESCE(i.encounter_id, 0) = 0
+                    AND i.administered_date >= ? AND i.administered_date < ? AND i.patient_id IN (' . self::marks($chunk) . ')',
+                [$from, $to, ...$chunk]
+            ) as $r) {
+                $unlinked[] = ['pid' => (int)$r['patient_id'], 'day' => (string)$r['day'], 'cvx' => trim((string)$r['cvx_code'])];
+            }
+        }
+        if ($unlinked === []) {
+            return [];
+        }
+        $days = [];
+        foreach (array_chunk(array_values(array_unique(array_column($unlinked, 'pid'))), self::CHUNK) as $chunk) {
+            foreach (QueryUtils::fetchRecords(
+                'SELECT fe.pid, DATE(fe.date) AS day, COUNT(*) AS visits, MIN(fe.encounter) AS encounter FROM form_encounter AS fe
+                  WHERE fe.date >= ? AND fe.date < ? AND fe.pid IN (' . self::marks($chunk) . ') AND ' . self::live('fe') . '
+                  GROUP BY fe.pid, DATE(fe.date)',
+                [$from, $to, ...$chunk]
+            ) as $r) {
+                $days[] = ['pid' => (int)$r['pid'], 'day' => (string)$r['day'], 'visits' => (int)$r['visits'], 'encounter' => (int)$r['encounter']];
+            }
+        }
+        return self::sameDay($unlinked, $days, array_map(fn(array $r): int => (int)$r['encounter'], $rows));
+    }
+
+    /**
+     * sameDayVaccines()'s rule on rows already read: a vaccine goes to the patient's one visit that day, if that visit
+     * is listed.
+     *
+     * @param list<array{pid: int, day: string, cvx: string}>                    $unlinked
+     * @param list<array{pid: int, day: string, visits: int, encounter: int}>   $days
+     * @param list<int>                                                          $listed
+     * @return array<int, list<string>>
+     */
+    public static function sameDay(array $unlinked, array $days, array $listed): array
+    {
+        $only = [];
+        foreach ($days as $d) {
+            if ($d['visits'] === 1) {
+                $only[$d['pid'] . '|' . $d['day']] = $d['encounter'];
+            }
+        }
+        $out = [];
+        foreach ($unlinked as $v) {
+            $e = $only[$v['pid'] . '|' . $v['day']] ?? null;
+            if ($e !== null && in_array($e, $listed, true) && $v['cvx'] !== '') {
+                $out[$e][] = $v['cvx'];
             }
         }
         return $out;

@@ -100,6 +100,54 @@ final class VisitSourceTest extends TestCase
         $this->assertStringNotContainsString('staff_worklist_state', QueryUtils::$calls[1]['sql']);
     }
 
+    public function testAVaccineWithNoVisitChosenBelongsToThatDaysOnlyVisit(): void
+    {
+        $unlinked = [['pid' => 7, 'day' => '2026-10-01', 'cvx' => '140']];
+        $one = [['pid' => 7, 'day' => '2026-10-01', 'visits' => 1, 'encounter' => 501]];
+        $this->assertSame([501 => ['140']], VisitSource::sameDay($unlinked, $one, [501]));
+
+        $two = [['pid' => 7, 'day' => '2026-10-01', 'visits' => 2, 'encounter' => 501]];
+        $this->assertSame([], VisitSource::sameDay($unlinked, $two, [501]), 'two visits that day: no guess');
+        $this->assertSame([], VisitSource::sameDay($unlinked, $one, [502]), 'that visit is not in the list being checked');
+        $other = [['pid' => 7, 'day' => '2026-10-02', 'visits' => 1, 'encounter' => 501]];
+        $this->assertSame([], VisitSource::sameDay($unlinked, $other, [501]), 'a visit on another day');
+        $someoneElse = [['pid' => 8, 'day' => '2026-10-01', 'visits' => 1, 'encounter' => 501]];
+        $this->assertSame([], VisitSource::sameDay($unlinked, $someoneElse, [501]), "another patient's visit");
+    }
+
+    public function testTheVisitListCarriesAVaccineRecordedWithoutAVisit(): void
+    {
+        QueryUtils::$results = [
+            [['id' => 1, 'encounter' => 501, 'pid' => 7, 'date' => '2026-10-01 09:00:00', 'pc_catid' => 5, 'sensitivity' => '',
+              'facility_id' => 3, 'provider_id' => 4, 'claimed' => 1, 'documented' => 1]],
+            [],
+            [],
+            [['patient_id' => 7, 'day' => '2026-10-01', 'cvx_code' => ' 140 ']],
+            [['pid' => 7, 'day' => '2026-10-01', 'visits' => 1, 'encounter' => 501]],
+        ];
+        $visits = (new VisitSource())->visits('2026-10-01', '2026-10-02', null, []);
+        $this->assertSame(['140'], $visits[0]->vaccinesGiven);
+        $this->assertStringContainsString('COALESCE(i.encounter_id, 0) = 0', QueryUtils::$calls[3]['sql']);
+        $this->assertStringContainsString("i.information_source = 'new_immunization_record'", QueryUtils::$calls[3]['sql'], 'given here, as for a linked one');
+        $this->assertSame(['2026-10-01', '2026-10-02', 7], QueryUtils::$calls[3]['binds']);
+        $this->assertStringContainsString('GROUP BY fe.pid, DATE(fe.date)', QueryUtils::$calls[4]['sql']);
+        $this->assertStringContainsString("np.formdir = 'newpatient' AND np.deleted = 1", QueryUtils::$calls[4]['sql'], 'only visits still there are counted');
+    }
+
+    public function testWithNoUnlinkedVaccinesTheDaysAreNotRead(): void
+    {
+        QueryUtils::$results = [
+            [['id' => 1, 'encounter' => 501, 'pid' => 7, 'date' => '2026-10-01 09:00:00', 'pc_catid' => 5, 'sensitivity' => '',
+              'facility_id' => 3, 'provider_id' => 4, 'claimed' => 1, 'documented' => 1]],
+            [],
+            [['encounter_id' => 501, 'cvx_code' => '140']],
+            [],
+        ];
+        $visits = (new VisitSource())->visits('2026-10-01', '2026-10-02', null, []);
+        $this->assertSame(['140'], $visits[0]->vaccinesGiven, 'a linked vaccine, as before');
+        $this->assertCount(4, QueryUtils::$calls);
+    }
+
     public function testDeletedVisitsAreNotScanned(): void
     {
         QueryUtils::$results = [[]];

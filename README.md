@@ -10,7 +10,7 @@ A charge review inside the clinic, before claims go out: care in the record that
   1. seen and not billed: a documented visit, past the days coding gets, with no charge; or an appointment marked seen with no visit;
   2. a vaccine given here with no line for the product the clinic bills for it, or with no administration line;
   3. a test run in the clinic, resulted, with no line for its code;
-  4. the mirrors: a vaccine product or administration line with no vaccine given, an in-clinic test billed with no result, charges on a visit with no forms and no signature;
+  4. the mirrors: a vaccine product or administration line with no vaccine given (a vaccine recorded without choosing a visit counts toward the patient's only visit that day), an in-clinic test billed with no result, charges on a visit with no forms and no signature;
   5. the same code twice on one visit, where units would carry the count;
   6. modifier 25 on a visit code with no other service beside it;
   7. a charge with no diagnosis pointer;
@@ -57,7 +57,7 @@ Then go to Modules › Manage Modules › Unregistered, and **Register**, **Inst
 
 ## Compatibility
 
-Written for OpenEMR 7.0 and later through [openhealthcare-common](https://github.com/anun333/openhealthcare-common)'s compatibility layer; its bootstrap never stops a page on any version. Checked end to end on 8.4.1 and master, and on fresh official 7.0.2 and 8.5.0 installs with its pages loaded and its forms posted (from 0.1.1: 0.1.0's forms stopped on 7.0.x).
+Written for OpenEMR 7.0 and later through [openhealthcare-common](https://github.com/anun333/openhealthcare-common)'s compatibility layer; its bootstrap never stops a page on any version. Checked end to end on 8.4.1 and master, and on fresh official 7.0.2 and 8.5.0 installs with its pages loaded and its forms posted (from 0.1.1: 0.1.0's forms stopped on 7.0.x); for 0.1.5, on 2026-10-26, the fresh installs and master again.
 
 ## Development
 

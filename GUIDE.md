@@ -58,7 +58,7 @@ On check 8: Medicaid needs the NDC on drugs given in the clinic, and other payer
 2. **Days coding gets before a visit counts as not billed**: check 1 waits this long.
 3. **Visit categories never billed (a phone note, a chart update)**: visits in these categories are never flagged.
 4. **Procedure providers whose tests are run in the clinic**: their orders feed checks 3 and 4.
-5. **Your vaccine list**: each vaccine you stock by **CVX**, with the **Code type** and **Product code** of the line you bill for it. A vaccine given here that isn't on the list is never flagged.
+5. **Your vaccine list**: each vaccine you stock by **CVX**, with the **Code type** and **Product code** of the line you bill for it. A vaccine given here that isn't on the list is never flagged. A vaccine recorded without choosing a visit counts toward the patient's visit that day when there was only one; on a day with two visits, pick the visit on the Immunizations screen so the checks can see it.
 6. **Check drug J-code lines for an NDC (check 8)**: on unless you turn it off. Turn it off if no payer you bill needs an NDC on drug lines; the lines are then never flagged for it.
 7. Choose **Save**. **Back to the charge review** returns to the look-back.
 

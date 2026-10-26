@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5 (unreleased)
+
+- **Fixed: a vaccine recorded without choosing a visit got a false flag.** OpenEMR's Immunizations screen lets the visit be left empty. Such a vaccine was never matched to a visit, so its product and administration lines were flagged "billed with none given" (check 4), and check 2 never saw it. A vaccine given here with no visit chosen now counts toward the visit the patient had that day, when there was exactly one; on a day with two visits it's left unplaced rather than guessed. Our UDS module joins such records to a same-day visit the same way.
+- **Checked:** new unit tests for the same-day rule fail on 0.1.4's code. Both new queries were run on the 8.4.1 and master databases, and on rows planted in a rolled-back transaction they found a vaccine with an empty visit (NULL and 0), left out a history entry, and found the day's one visit. Fresh official 7.0.2 and 8.5.0 installs load every page and post the settings form, and the end-to-end check passes on master.
+
 ## 0.1.4 (2026-10-26)
 
 - **Check 8: a drug billed by its J code with no NDC.** A HCPCS line whose code starts with J and carries no NDC the claim would send is flagged as a claim quality problem, in the Worklist's Charges to check tab and in the look-back. Medicaid needs the NDC on drugs given in the clinic, to claim the manufacturer's rebate (Social Security Act 1927(a)(7), added by the Deficit Reduction Act of 2005, section 6002; CMS letter SMDL 06-016), and other payers often deny the line without it. "Carries" means what core puts on the claim: `billing.ndc_info` in the N4 format the fee sheet's NDC fields write, which is all `Claim::cptNDCID()` reads on 8.4.1 and master. A number typed in any other way goes out with no NDC, so it stays flagged. Core's fee sheet offers the NDC fields on HCPCS lines only, so only those are checked. **Settings** has **Check drug J-code lines for an NDC (check 8)**, on unless a site turns it off, for one that bills no payer needing NDCs.
