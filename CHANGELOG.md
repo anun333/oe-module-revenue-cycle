@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.6 (unreleased)
+## 0.1.6 (2026-10-26)
 
 - **The vaccine list's fields have names a screen reader can read.** Each row's CVX code, code type and product code field is named with its column and row ("CVX code, row 2"), and the table's headers are marked as column headers. They had none, so a screen reader announced bare edit fields.
 - **Pages declare the user's language.** Each page's `lang` and `dir` follow the signed-in user's OpenEMR language (openhealthcare-common 1.4.0), falling back to English where an older copy of the library was loaded first.
