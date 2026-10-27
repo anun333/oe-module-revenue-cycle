@@ -33,4 +33,14 @@ final class SettingsTest extends TestCase
         QueryUtils::$results = [[['name' => Settings::CHECK_NDC, 'value' => 'true']]];
         self::assertTrue((new Settings())->checkNdc(), 'saved on');
     }
+
+    public function testTitleXConfidentialCategoriesAreReadOnlyWhileTitleXReportIsInstalledAndOn(): void
+    {
+        QueryUtils::$results = [[]]; // no title_x_report_setting table
+        self::assertSame([], (new Settings())->titleXConfidential());
+        QueryUtils::$results = [[['1' => 1]], []]; // the table is there, the module isn't enabled
+        self::assertSame([], (new Settings())->titleXConfidential());
+        QueryUtils::$results = [[['1' => 1]], [['1' => 1]], [['value' => '[12, 0, "x", 14]']]];
+        self::assertSame([12, 14], (new Settings())->titleXConfidential());
+    }
 }

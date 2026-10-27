@@ -45,6 +45,7 @@ final class ChargeReview
             neverBillable: $this->settings->neverBillable(),
             daysToBill: $this->settings->daysToBill(),
             checkNdc: $this->settings->checkNdc(),
+            confidential: $this->settings->titleXConfidential(),
         );
     }
 

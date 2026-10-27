@@ -47,6 +47,26 @@ final class Settings
         return self::ints($this->all()[self::NEVER_BILLABLE] ?? []);
     }
 
+    /**
+     * The visit categories Title X Report's settings name for confidential services, when Title X Report is installed
+     * and enabled: a guarded read of its settings table, as the modules read each other's (none otherwise).
+     *
+     * @return list<int>
+     */
+    public function titleXConfidential(): array
+    {
+        $installed = QueryUtils::fetchRecords(
+            "SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'title_x_report_setting'"
+        ) !== [] && QueryUtils::fetchRecords(
+            "SELECT 1 FROM modules WHERE mod_directory = 'oe-module-title-x-report' AND mod_active = 1"
+        ) !== [];
+        if (!$installed) {
+            return [];
+        }
+        $row = QueryUtils::fetchRecords("SELECT value FROM title_x_report_setting WHERE name = 'confidential'")[0] ?? null;
+        return self::ints(json_decode((string)($row['value'] ?? '[]'), true));
+    }
+
     /** @return list<int> */
     public function inClinicLabs(): array
     {

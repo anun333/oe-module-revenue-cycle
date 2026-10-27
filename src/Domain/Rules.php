@@ -35,6 +35,7 @@ final class Rules
         public readonly array $neverBillable,
         public readonly int $daysToBill = 3,
         public readonly bool $checkNdc = true,
+        public readonly array $confidential = [],
     ) {
     }
 

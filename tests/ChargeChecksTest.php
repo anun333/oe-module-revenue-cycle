@@ -185,6 +185,30 @@ final class ChargeChecksTest extends TestCase
         self::assertSame([], $this->kinds($this->visit(lines: $billed, referrer: null, insured: true)), 'no referrer on the claim');
     }
 
+    public function testAConfidentialTitleXVisitKeepsItsChargeChecksButNotTheClaimChecks(): void
+    {
+        $codes = json_decode((string)file_get_contents(dirname(__DIR__) . '/data/codes.json'), true);
+        $checks = new ChargeChecks(new Rules(
+            serviceTypes: ['CPT4', 'HCPCS'],
+            justifiedTypes: ['CPT4', 'HCPCS'],
+            vaccines: [],
+            administration: array_map(fn(array $c): array => ['type' => $c['type'], 'code' => $c['code']], $codes['vaccineAdministration']['codes']),
+            visitLevel: $codes['visitLevel']['ranges'],
+            neverBillable: [9],
+            daysToBill: 3,
+            confidential: [12],
+        ));
+        $noNpi = new Referrer(41, Referrer::PATIENT, 'Ann Lee', '');
+        $lines = [$this->line(1, '99213'), $this->line(2, 'J1050')];
+        $kinds = fn(Visit $v): array => array_map(fn(Flag $f): string => $f->kind, $checks->visit($v, $this->today));
+        self::assertSame([Flag::J_CODE_NO_NDC, Flag::REFERRER_NO_NPI], $kinds($this->visit(lines: $lines, referrer: $noNpi, insured: true)),
+            'another category: both claim checks');
+        self::assertSame([], $kinds($this->visit(lines: $lines, referrer: $noNpi, insured: true, category: 12)),
+            'a confidential category: neither claim check nudges toward billing insurance');
+        self::assertSame([Flag::SEEN_NOT_BILLED], $kinds($this->visit(date: '2026-10-15', lines: [$this->line(1, 'Z00.00', '', 'ICD10')], category: 12)),
+            'its charges are still checked: a visit seen and not billed is flagged');
+    }
+
     public function testTheReferrerIsChosenAsCoreChoosesIt(): void
     {
         // Box 17 first; on 8.4.0 and later only with qualifier empty or DN (referring).

@@ -34,6 +34,8 @@ On check 8: Medicaid needs the NDC on drugs given in the clinic, and other payer
 
 On check 9: only a visit with a charge, for a patient with a primary insurance in force on the visit date, is checked, since only that visit's claim goes to a payer. OpenEMR's Demographics lets you pick a user with no NPI as the referring provider; the visit form's list leaves such a user out, so a new visit shows no referring provider and the claim falls back to the one in Demographics, and goes out with the name and no NPI. When your site sends the rendering provider as the Medicare referrer, the claim carries no referring provider of its own, and this check leaves it alone.
 
+On confidential Title X visits: when the Title X Report module is installed and names the visit categories it uses for confidential services, checks 8 and 9 leave those visits alone, since both exist to get a claim through to an insurer. Their charges are still checked by the others. Title X Report's own tab in the Staff Worklist covers a confidential visit that's queued or billed to insurance.
+
 *What it doesn't do:* it never names a code to add and never asks for documentation. A missed charge rests only on what the record already holds.
 
 ## The person who reviews billing

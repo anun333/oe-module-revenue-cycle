@@ -46,6 +46,7 @@ namespace OpenHealthcare\RevenueCycle\Tests {
             QueryUtils::$results = [
                 [], // settings: the defaults
                 [], // code types
+                [], // Title X Report's settings table: not installed, so no confidential categories
                 [], // visits: none
                 [['option_id' => '<', 'title' => 'In exam room', 'toggle_setting_1' => 0, 'toggle_setting_2' => 0]], // a seen status
                 [['pc_eid' => 55, 'pc_pid' => 7, 'pc_eventDate' => '2026-10-20', 'pc_facility' => 3, 'pc_aid' => 2]],
@@ -60,8 +61,8 @@ namespace OpenHealthcare\RevenueCycle\Tests {
             $this->assertSame('revcycle:7:' . $flag->ref(), (string)$item->key);
             $this->assertStringContainsString('2026-10-20', $item->title);
             $this->assertSame([WorkItem::PRIORITY_NORMAL, 'Doe, Jan', '2026-10-20', 'chart', null], [$item->priority, $item->patient->name, $item->since->format('Y-m-d'), $item->actionMode, $item->siteId]);
-            $this->assertSame([7], QueryUtils::$calls[5]['binds'], 'the patient read for the item');
-            $this->assertCount(6, QueryUtils::$calls, 'one patient checked on its own records no flags');
+            $this->assertSame([7], QueryUtils::$calls[6]['binds'], 'the patient read for the item');
+            $this->assertCount(7, QueryUtils::$calls, 'one patient checked on its own records no flags, and Title X Report looked for once');
         }
 
         public function testNothingToCheckReadsNoPatients(): void

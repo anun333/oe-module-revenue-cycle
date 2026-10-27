@@ -105,7 +105,10 @@ final class ChargeChecks
         // 8. A drug billed by its J code with no NDC the claim would carry. Core's fee sheet asks for an NDC on HCPCS
         // lines; Medicaid programs need it on physician-administered drugs to claim rebates (Social Security Act
         // 1927(a)(7)), and other payers often deny the line without it. A site that bills no such payer turns it off.
-        if ($this->rules->checkNdc) {
+        // Checks 8 and 9 exist to get a claim through to an insurer. On a confidential Title X visit (42 CFR 59.10(a)) the
+        // charges are still checked above, but nothing here should nudge anyone toward billing the client's insurance.
+        $confidential = in_array($v->categoryId, $this->rules->confidential, true);
+        if ($this->rules->checkNdc && !$confidential) {
             foreach ($services as $line) {
                 if ($line->codeType === 'HCPCS' && stripos($line->code, 'J') === 0 && !$line->hasNdc()) {
                     $flags[] = new Flag(Flag::J_CODE_NO_NDC, $v->encounter, $v->pid, "line:{$line->id}", [$line->code], [$line->id]);
@@ -116,7 +119,7 @@ final class ChargeChecks
         // 9. A claim to a payer whose referring provider has no NPI (core issue #14858): Demographics lets an
         // authorized user with no NPI be chosen, and the claim then carries the name without the NPI Medicare requires.
         $referrer = $v->referrer;
-        if ($services !== [] && $v->insured && $referrer !== null && $referrer->npiMissing()) {
+        if (!$confidential && $services !== [] && $v->insured && $referrer !== null && $referrer->npiMissing()) {
             $flags[] = new Flag(Flag::REFERRER_NO_NPI, $v->encounter, $v->pid, "referrer:{$referrer->userId}", [$referrer->name, $referrer->source]);
         }
         return $flags;

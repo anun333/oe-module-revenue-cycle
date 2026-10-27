@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9 (unreleased)
+
+- **Confidential Title X visits aren't nudged toward insurance.** When the Title X Report module (0.3.0 or later) is installed and enabled and names the visit categories it uses for confidential services, checks 8 (a drug line with no NDC) and 9 (a referring provider with no NPI) leave those visits alone: both exist to get a claim through to an insurer, and a confidential visit's insurance is billed only with the client's agreement (42 CFR 59.10(a)). The visit's charges are still checked by the other checks. Title X Report's own Worklist tab lists a confidential visit that's queued or billed to insurance.
+
 ## 0.1.8 (2026-10-26)
 
 - **Check 9: a claim whose referring provider has no NPI.** OpenEMR's Demographics lets an authorized user with no NPI be the referring provider; the visit form's list (NPI holders only) then preselects nothing, and the claim falls back to the Demographics choice, so an 837 or HCFA-1500 goes out with the referrer's name and no NPI, which Medicare requires (core issue #14858; the only sign until now was a line in the X12 log). The check picks the referrer as core's claim does: Misc Billing Options box 17 (on 8.4.0 and later only with qualifier blank or DN), then the visit's referring provider, then Demographics, and leaves it alone when the site sends the rendering provider as the Medicare referrer. Only a visit with a charge and a primary insurance in force on its date is checked. The item names the provider and where the claim takes it from, under "Claim quality".
