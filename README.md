@@ -6,7 +6,7 @@ A charge review inside the clinic, before claims go out: care in the record that
 
 ## What it does
 
-- **Eight checks** on each visit whose claim hasn't gone out:
+- **Nine checks** on each visit whose claim hasn't gone out:
   1. seen and not billed: a documented visit, past the days coding gets, with no charge; or an appointment marked seen with no visit;
   2. a vaccine given here with no line for the product the clinic bills for it, or with no administration line;
   3. a test run in the clinic, resulted, with no line for its code;
@@ -15,6 +15,7 @@ A charge review inside the clinic, before claims go out: care in the record that
   6. modifier 25 on a visit code with no other service beside it;
   7. a charge with no diagnosis pointer;
   8. a drug billed by its J code with no NDC the claim would carry (Medicaid needs it on drugs given in the clinic).
+  9. a claim to a payer whose referring provider has no NPI: OpenEMR's Demographics lets a user with no NPI be chosen, and the claim then carries the name without the NPI Medicare requires (core issue [#14858](https://github.com/openemr/openemr/issues/14858)).
 - **The queue** is a "Charges to check" tab in the [Staff Worklist](https://github.com/anun333/oe-module-staff-worklist), for whoever bills. Each item says what was found and opens the visit. Accept by fixing the fee sheet; the flag clears on its own. Dismiss with a reason, which the Worklist logs. A view records only the flags that are new, cleared or found again, so one that changes nothing writes nothing to the database or to OpenEMR's audit log.
 - **The look-back** runs the same checks over visits already billed, both directions, with each charge from the clinic's own fee schedule at the patient's own price level and, for a missed charge, the days left in the year a Medicare claim can be corrected. It counts what became of every flag: accepted, dismissed or open, by check and direction. The list shows 200 findings a page, all checks or one, and downloads as a CSV file with every row of the chosen list.
 - **Settings:** when the review starts, how many days coding gets, the visit categories never billed, the procedure provider whose tests are run in the clinic, the clinic's vaccine list (each CVX with the product code it bills), and whether check 8 runs (on unless turned off, for a site that bills no payer needing NDCs). The vaccine rows start from what was given here.
@@ -51,6 +52,8 @@ composer require anun333/oe-module-revenue-cycle
 ```
 
 The installer plugin places it in `interface/modules/custom_modules/oe-module-revenue-cycle/`, and Composer brings [openhealthcare-common](https://github.com/anun333/openhealthcare-common) with it. Without Composer, copy this directory there and run `composer install --no-dev` in it, which puts openhealthcare-common in its own `vendor/`; the module stays switched off until it finds that package one way or the other. If you copy several of our modules in by hand, keep their `vendor/openhealthcare-common` at the same version: OpenEMR loads the first copy it finds for all of them.
+
+**After adding, upgrading or removing a module copied in by hand, restart the container (or Apache).** OpenEMR's official Docker images (8.0.0 to 8.5.0) keep in APCu which file holds each class, and each class they didn't find, across requests: until a restart, a class once not found stays not found, and a removed module's classes still point at its folder. An OpenEMR built from source without Composer's `--apcu-autoloader` has no such cache.
 
 Then go to Modules › Manage Modules › Unregistered, and **Register**, **Install** and **Enable** it. Open **Revenue Cycle** › Settings, fill in your vaccine list and the in-clinic provider, and save. The Charges to check tab needs the Staff Worklist.
 

@@ -20,6 +20,8 @@ final class Visit
      * @param list<Line>                                $lines          the fee sheet's active lines (billing.activity = 1)
      * @param list<string>                              $vaccinesGiven  CVX codes given here on the visit (not history entries or refusals)
      * @param list<array{code: string, resulted: bool}> $inClinicTests  orders from the site's in-clinic provider, by standard code
+     * @param Referrer|null                             $referrer       the referring provider the claim would carry (see Referrer::choose())
+     * @param bool                                      $insured        a primary insurance in force on the visit date, so a claim goes to a payer
      */
     public function __construct(
         public readonly int $encounter,
@@ -34,6 +36,8 @@ final class Visit
         public readonly array $lines,
         public readonly array $vaccinesGiven = [],
         public readonly array $inClinicTests = [],
+        public readonly ?Referrer $referrer = null,
+        public readonly bool $insured = false,
     ) {
     }
 }

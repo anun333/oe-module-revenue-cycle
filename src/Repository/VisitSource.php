@@ -23,6 +23,7 @@ namespace OpenHealthcare\RevenueCycle\Repository;
 use OpenEMR\Common\Database\QueryUtils;
 use OpenHealthcare\Common\OpenEmr;
 use OpenHealthcare\RevenueCycle\Domain\Line;
+use OpenHealthcare\RevenueCycle\Domain\Referrer;
 use OpenHealthcare\RevenueCycle\Domain\Visit;
 
 final class VisitSource
@@ -62,6 +63,7 @@ final class VisitSource
         }
         $rows = QueryUtils::fetchRecords(
             "SELECT fe.id, fe.encounter, fe.pid, fe.date, fe.pc_catid, fe.sensitivity, fe.facility_id, fe.provider_id,
+                    fe.referring_provider_id,
                     EXISTS (SELECT 1 FROM claims AS c WHERE c.patient_id = fe.pid AND c.encounter_id = fe.encounter)
                     OR EXISTS (SELECT 1 FROM billing AS b WHERE b.pid = fe.pid AND b.encounter = fe.encounter AND b.activity = 1 AND b.billed = 1) AS claimed,
                     EXISTS (SELECT 1 FROM forms AS f WHERE f.pid = fe.pid AND f.encounter = fe.encounter AND f.deleted = 0 AND f.formdir <> 'newpatient')
@@ -90,6 +92,8 @@ final class VisitSource
             $vaccines[$e] = [...($vaccines[$e] ?? []), ...$codes];
         }
         $tests = $inClinicLabs === [] ? [] : $this->tests($encounters, $inClinicLabs, $pidOf);
+        // Only a visit with fee sheet lines can make a claim, so only those need the claim's referrer and payer.
+        $claims = $this->claimFacts(array_values(array_filter($rows, fn(array $r): bool => isset($lines[(int)$r['encounter']]))), $pidOf);
         $out = [];
         foreach ($rows as $r) {
             $e = (int)$r['encounter'];
@@ -106,6 +110,8 @@ final class VisitSource
                 lines: $lines[$e] ?? [],
                 vaccinesGiven: $vaccines[$e] ?? [],
                 inClinicTests: $tests[$e] ?? [],
+                referrer: $claims[$e]['referrer'] ?? null,
+                insured: $claims[$e]['insured'] ?? false,
             );
         }
         return $out;
@@ -361,6 +367,142 @@ final class VisitSource
             }
         }
         return $out;
+    }
+
+    /**
+     * The referring provider each visit's claim would carry (Referrer::choose(), as core's Claim::getReferrerId())
+     * and whether a primary insurance is in force on the visit date, so that a claim goes to a payer.
+     *
+     * @param list<array<string, mixed>> $rows    the visits with fee sheet lines, with referring_provider_id
+     * @param array<int, int>            $pidOf   each visit's patient
+     * @return array<int, array{referrer: ?Referrer, insured: bool}>
+     */
+    private function claimFacts(array $rows, array $pidOf): array
+    {
+        if ($rows === []) {
+            return [];
+        }
+        $encounters = array_map(fn(array $r): int => (int)$r['encounter'], $rows);
+        $patients = array_values(array_unique(array_map(fn(array $r): int => (int)$r['pid'], $rows)));
+        // The Demographics referring provider, the claim's last resort.
+        $patientReferrer = [];
+        foreach (array_chunk($patients, self::CHUNK) as $chunk) {
+            foreach (QueryUtils::fetchRecords('SELECT pid, ref_providerID FROM patient_data WHERE pid IN (' . self::marks($chunk) . ')', $chunk) as $r) {
+                $patientReferrer[(int)$r['pid']] = (int)($r['ref_providerID'] ?? 0);
+            }
+        }
+        // Box 17: the visit's first Misc Billing Options form by date, as Claim::getMiscBillingOptions() reads it.
+        $box17 = [];
+        foreach (array_chunk($encounters, self::CHUNK) as $chunk) {
+            $pids = self::patients($chunk, $pidOf);
+            foreach (QueryUtils::fetchRecords(
+                "SELECT f.encounter, m.provider_id, m.provider_qualifier_code FROM forms AS f
+                   JOIN form_misc_billing_options AS m ON m.id = f.form_id
+                  WHERE f.deleted = 0 AND f.formdir = 'misc_billing_options' AND f.pid IN (" . self::marks($pids) . ')
+                    AND f.encounter IN (' . self::marks($chunk) . ') ORDER BY f.date, f.id',
+                [...$pids, ...$chunk]
+            ) as $r) {
+                $box17[(int)$r['encounter']] ??= ['provider' => (int)($r['provider_id'] ?? 0), 'qualifier' => (string)($r['provider_qualifier_code'] ?? '')];
+            }
+        }
+        $insurance = [];
+        foreach (array_chunk($patients, self::CHUNK) as $chunk) {
+            foreach (QueryUtils::fetchRecords(
+                "SELECT pid, provider, date, date_end FROM insurance_data WHERE type = 'primary' AND pid IN (" . self::marks($chunk) . ') ORDER BY date DESC',
+                $chunk
+            ) as $r) {
+                $insurance[(int)$r['pid']][] = $r;
+            }
+        }
+        $rendererSetting = strtolower(trim(OpenEmr::setting('MedicareReferrerIsRenderer')));
+        $rendererOn = !in_array($rendererSetting, ['', '0', 'false', 'off', 'no'], true);
+        $numbers = [];
+        if ($rendererOn) {
+            $providers = array_values(array_unique(array_map(fn(array $r): int => (int)$r['provider_id'], $rows)));
+            foreach (QueryUtils::fetchRecords(
+                'SELECT provider_id, insurance_company_id, provider_number_type FROM insurance_numbers WHERE provider_id IN (' . self::marks($providers) . ')',
+                $providers
+            ) as $r) {
+                $numbers[(int)$r['provider_id']][] = $r;
+            }
+        }
+        $qualifierCounts = version_compare(OpenEmr::version(), '8.4.0', '>=');
+        $chosen = [];
+        $insured = [];
+        foreach ($rows as $r) {
+            $e = (int)$r['encounter'];
+            $payer = self::primaryInForce($insurance[(int)$r['pid']] ?? [], substr((string)$r['date'], 0, 10));
+            $insured[$e] = $payer !== null;
+            $renderingInstead = $rendererOn && $payer !== null
+                && self::providerNumberType($numbers[(int)$r['provider_id']] ?? [], $payer) === '1C';
+            $chosen[$e] = Referrer::choose(
+                $box17[$e]['provider'] ?? 0,
+                $box17[$e]['qualifier'] ?? '',
+                $qualifierCounts,
+                (int)($r['referring_provider_id'] ?? 0),
+                $patientReferrer[(int)$r['pid']] ?? 0,
+                $renderingInstead,
+            );
+        }
+        $ids = array_values(array_unique(array_map(fn(array $c): int => $c['id'], array_filter($chosen))));
+        $users = [];
+        foreach (array_chunk($ids, self::CHUNK) as $chunk) {
+            foreach (QueryUtils::fetchRecords('SELECT id, fname, lname, npi FROM users WHERE id IN (' . self::marks($chunk) . ')', $chunk) as $u) {
+                $users[(int)$u['id']] = $u;
+            }
+        }
+        $out = [];
+        foreach ($chosen as $e => $c) {
+            $u = $c === null ? null : ($users[$c['id']] ?? null);
+            // A referrer with no users row reaches no claim: core's getUser() finds nothing, and the loop is left out.
+            $name = $u === null ? '' : trim(trim((string)($u['fname'] ?? '')) . ' ' . trim((string)($u['lname'] ?? '')));
+            $out[$e] = [
+                'referrer' => $u === null || $c === null ? null : new Referrer($c['id'], $c['source'], $name !== '' ? $name : '#' . $c['id'], (string)($u['npi'] ?? '')),
+                'insured' => $insured[$e],
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * The insurance company of the patient's primary insurance in force on a day, or null for none: the latest row
+     * dated on or before the day (or undated) and not ended before it, where a row with no company means no
+     * insurance from its date, as core's Claim reads insurance_data.
+     *
+     * @param list<array<string, mixed>> $rows the patient's primary rows, latest date first
+     */
+    public static function primaryInForce(array $rows, string $day): ?string
+    {
+        foreach ($rows as $r) {
+            $from = substr((string)($r['date'] ?? ''), 0, 10);
+            $to = substr((string)($r['date_end'] ?? ''), 0, 10);
+            if (($from === '' || $from <= $day) && ($to === '' || $to >= $day)) {
+                $company = trim((string)($r['provider'] ?? ''));
+                return $company === '' || $company === '0' ? null : $company;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The provider number type core's Claim takes for a provider and payer: the row for that company, else the row
+     * with no company (getInsuranceNumbers(): ORDER BY insurance_company_id DESC LIMIT 1).
+     *
+     * @param list<array<string, mixed>> $rows the provider's insurance_numbers rows
+     */
+    public static function providerNumberType(array $rows, string $payer): string
+    {
+        $fallback = null;
+        foreach ($rows as $r) {
+            $company = $r['insurance_company_id'] ?? null;
+            if ($company !== null && (string)$company === $payer) {
+                return trim((string)($r['provider_number_type'] ?? ''));
+            }
+            if ($company === null) {
+                $fallback = trim((string)($r['provider_number_type'] ?? ''));
+            }
+        }
+        return $fallback ?? '';
     }
 
     /**

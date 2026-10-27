@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Checks 1 to 8 of the charge review (docs/products/revenue-cycle/charge-review-plan-2026-10.md in the openhealthcare
+ * Checks 1 to 9 of the charge review (docs/products/revenue-cycle/charge-review-plan-2026-10.md in the openhealthcare
  * workspace), on one visit at a time. Each missed-charge check has a mirror for a charge with nothing behind it, so
  * both directions are found from the first version. Nothing here needs a licensed table.
  *
@@ -111,6 +111,13 @@ final class ChargeChecks
                     $flags[] = new Flag(Flag::J_CODE_NO_NDC, $v->encounter, $v->pid, "line:{$line->id}", [$line->code], [$line->id]);
                 }
             }
+        }
+
+        // 9. A claim to a payer whose referring provider has no NPI (core issue #14858): Demographics lets an
+        // authorized user with no NPI be chosen, and the claim then carries the name without the NPI Medicare requires.
+        $referrer = $v->referrer;
+        if ($services !== [] && $v->insured && $referrer !== null && $referrer->npiMissing()) {
+            $flags[] = new Flag(Flag::REFERRER_NO_NPI, $v->encounter, $v->pid, "referrer:{$referrer->userId}", [$referrer->name, $referrer->source]);
         }
         return $flags;
     }

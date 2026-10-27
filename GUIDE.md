@@ -28,8 +28,11 @@ What each check says, and where to look:
 | 6 | Modifier 25 with no other service on the visit | Whether the modifier belongs |
 | 7 | A line with no diagnosis pointer | The line's justify column |
 | 8 | A drug billed by its J code with no NDC (new in 0.1.4) | The line's NDC fields on the fee sheet: the number, unit and quantity from the package |
+| 9 | A referring provider on the claim with no NPI, and where the claim takes that provider from: Misc Billing Options box 17, the visit form, or Demographics (new in 0.1.8) | That user's NPI in Administration › Users, or a referring provider with an NPI where the item says the claim takes it from |
 
 On check 8: Medicaid needs the NDC on drugs given in the clinic, and other payers often deny the line without it. An NDC typed into the line any other way than the fee sheet's NDC fields doesn't reach the claim, so the line stays flagged.
+
+On check 9: only a visit with a charge, for a patient with a primary insurance in force on the visit date, is checked, since only that visit's claim goes to a payer. OpenEMR's Demographics lets you pick a user with no NPI as the referring provider; the visit form's list leaves such a user out, so a new visit shows no referring provider and the claim falls back to the one in Demographics, and goes out with the name and no NPI. When your site sends the rendering provider as the Medicare referrer, the claim carries no referring provider of its own, and this check leaves it alone.
 
 *What it doesn't do:* it never names a code to add and never asks for documentation. A missed charge rests only on what the record already holds.
 

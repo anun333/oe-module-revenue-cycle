@@ -16,6 +16,7 @@ declare(strict_types=1);
 namespace OpenHealthcare\RevenueCycle;
 
 use OpenHealthcare\RevenueCycle\Domain\Flag;
+use OpenHealthcare\RevenueCycle\Domain\Referrer;
 
 final class Labels
 {
@@ -35,8 +36,18 @@ final class Labels
             Flag::MODIFIER_25_ALONE => '%s with modifier 25, and no other service on the visit',
             Flag::NO_DIAGNOSIS => '%s has no diagnosis pointer',
             Flag::J_CODE_NO_NDC => '%s, a drug billed by its J code, has no NDC',
+            Flag::REFERRER_NO_NPI => '%1$s, the referring provider on the claim (from %2$s), has no NPI',
         };
-        return vsprintf($translate($template), $flag->args);
+        $args = $flag->args;
+        if ($flag->kind === Flag::REFERRER_NO_NPI && isset($args[1])) {
+            // Where the claim takes its referrer from, translated before the sentence.
+            $args[1] = $translate(match ($args[1]) {
+                Referrer::BOX_17 => 'Misc Billing Options box 17',
+                Referrer::VISIT => 'the visit form',
+                default => 'Demographics',
+            });
+        }
+        return vsprintf($translate($template), $args);
     }
 
     /** @param callable(string): string $translate */

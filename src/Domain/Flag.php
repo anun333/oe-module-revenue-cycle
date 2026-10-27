@@ -34,6 +34,7 @@ final class Flag
     public const MODIFIER_25_ALONE = 'modifier_25_alone';
     public const NO_DIAGNOSIS = 'no_diagnosis';
     public const J_CODE_NO_NDC = 'j_code_no_ndc';
+    public const REFERRER_NO_NPI = 'referrer_no_npi';
 
     /** Each kind's check number in the plan, and its direction. */
     public const KINDS = [
@@ -42,7 +43,7 @@ final class Flag
         self::VACCINE_BILLED_NONE_GIVEN => [4, self::OVER], self::TEST_BILLED_NO_RESULT => [4, self::OVER],
         self::CHARGES_NO_DOCUMENTATION => [4, self::OVER], self::SAME_CODE_TWICE => [5, self::OVER],
         self::MODIFIER_25_ALONE => [6, self::OVER], self::NO_DIAGNOSIS => [7, self::QUALITY],
-        self::J_CODE_NO_NDC => [8, self::QUALITY],
+        self::J_CODE_NO_NDC => [8, self::QUALITY], self::REFERRER_NO_NPI => [9, self::QUALITY],
     ];
 
     /**

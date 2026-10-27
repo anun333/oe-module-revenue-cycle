@@ -7,6 +7,7 @@ namespace OpenHealthcare\RevenueCycle\Tests;
 use OpenHealthcare\RevenueCycle\Domain\ChargeChecks;
 use OpenHealthcare\RevenueCycle\Domain\Flag;
 use OpenHealthcare\RevenueCycle\Domain\Line;
+use OpenHealthcare\RevenueCycle\Domain\Referrer;
 use OpenHealthcare\RevenueCycle\Domain\Rules;
 use OpenHealthcare\RevenueCycle\Domain\Visit;
 use PHPUnit\Framework\TestCase;
@@ -166,9 +167,42 @@ final class ChargeChecksTest extends TestCase
      * @param list<string>                              $vaccines
      * @param list<array{code: string, resulted: bool}> $tests
      */
-    private function visit(string $date = '2026-10-10', bool $documented = true, array $lines = [], array $vaccines = [], array $tests = [], int $category = 5): Visit
+    public function testCheck9FindsAnInsuredClaimWhoseReferringProviderHasNoNpi(): void
     {
-        return new Visit(501, 7, $date, $category, 'normal', 3, 2, $documented, false, $lines, $vaccines, $tests);
+        $billed = [$this->line(1, '99213')];
+        $none = new Referrer(41, Referrer::PATIENT, 'Ann Lee', '');
+        $flags = $this->checks->visit($this->visit(lines: $billed, referrer: $none, insured: true), $this->today);
+        self::assertSame([Flag::REFERRER_NO_NPI], array_map(fn(Flag $f): string => $f->kind, $flags));
+        self::assertSame(['Ann Lee', Referrer::PATIENT], $flags[0]->args, 'names the referrer and where the claim takes it from');
+        self::assertSame('referrer:41', $flags[0]->subject);
+        self::assertSame(9, $flags[0]->check());
+        self::assertSame([Flag::REFERRER_NO_NPI], $this->kinds($this->visit(lines: $billed, referrer: new Referrer(41, Referrer::VISIT, 'Ann Lee', ' ** '), insured: true)),
+            'an NPI that X12 cleaning empties is none');
+
+        self::assertSame([], $this->kinds($this->visit(lines: $billed, referrer: new Referrer(41, Referrer::PATIENT, 'Ann Lee', '1234567893'), insured: true)), 'a referrer with an NPI');
+        self::assertSame([], $this->kinds($this->visit(lines: $billed, referrer: $none, insured: false)), 'no insurance in force: no claim goes to a payer');
+        self::assertSame([], $this->kinds($this->visit(lines: [], referrer: $none, insured: true, date: '2026-10-19')), 'no service line: nothing to claim');
+        self::assertSame([], $this->kinds($this->visit(lines: $billed, referrer: null, insured: true)), 'no referrer on the claim');
+    }
+
+    public function testTheReferrerIsChosenAsCoreChoosesIt(): void
+    {
+        // Box 17 first; on 8.4.0 and later only with qualifier empty or DN (referring).
+        self::assertSame(['id' => 5, 'source' => Referrer::BOX_17], Referrer::choose(5, '', true, 6, 7, false));
+        self::assertSame(['id' => 5, 'source' => Referrer::BOX_17], Referrer::choose(5, 'DN', true, 6, 7, false));
+        self::assertSame(['id' => 6, 'source' => Referrer::VISIT], Referrer::choose(5, 'DK', true, 6, 7, false), 'an ordering provider in box 17 is not the referrer');
+        self::assertSame(['id' => 5, 'source' => Referrer::BOX_17], Referrer::choose(5, 'DK', false, 6, 7, false), 'before 8.4.0 any box 17 provider is');
+        // Then the visit, then Demographics, unless the rendering provider goes as the Medicare referrer.
+        self::assertSame(['id' => 6, 'source' => Referrer::VISIT], Referrer::choose(0, '', true, 6, 7, true));
+        self::assertSame(['id' => 7, 'source' => Referrer::PATIENT], Referrer::choose(0, '', true, 0, 7, false));
+        self::assertNull(Referrer::choose(0, '', true, 0, 7, true), 'the rendering provider goes instead, and is left alone');
+        self::assertNull(Referrer::choose(0, '', true, 0, 0, false));
+    }
+
+    private function visit(string $date = '2026-10-10', bool $documented = true, array $lines = [], array $vaccines = [], array $tests = [], int $category = 5,
+        ?Referrer $referrer = null, bool $insured = false): Visit
+    {
+        return new Visit(501, 7, $date, $category, 'normal', 3, 2, $documented, false, $lines, $vaccines, $tests, $referrer, $insured);
     }
 
     private function line(int $id, string $code, string $modifier = '', ?string $type = null, string $justify = 'ICD10|Z00.00:', string $ndc = ''): Line

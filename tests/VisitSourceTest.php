@@ -33,6 +33,7 @@ final class VisitSourceTest extends TestCase
     {
         QueryUtils::$results = [];
         QueryUtils::$calls = [];
+        unset($GLOBALS['openemr_version'], $GLOBALS['MedicareReferrerIsRenderer']);
     }
 
     public function testSeenStatusesAreTodaysWhenTheFeeSheetSettingIsUnset(): void
@@ -186,5 +187,77 @@ final class VisitSourceTest extends TestCase
         QueryUtils::$results = [[]];
         (new VisitSource())->visits('2026-10-01', '2026-10-02', null, []);
         $this->assertStringContainsString("np.formdir = 'newpatient' AND np.deleted = 1", QueryUtils::$calls[0]['sql']);
+    }
+    public function testThePrimaryInsuranceInForceIsReadAsCoreReadsIt(): void
+    {
+        $rows = [ // latest date first
+            ['provider' => '', 'date' => '2026-09-01', 'date_end' => null],
+            ['provider' => '12', 'date' => '2026-01-01', 'date_end' => null],
+            ['provider' => '11', 'date' => '2025-01-01', 'date_end' => '2025-12-31'],
+        ];
+        self::assertSame('12', VisitSource::primaryInForce($rows, '2026-05-01'));
+        self::assertNull(VisitSource::primaryInForce($rows, '2026-10-01'), 'a row with no company means no insurance from its date');
+        self::assertSame('11', VisitSource::primaryInForce($rows, '2025-06-01'));
+        self::assertNull(VisitSource::primaryInForce($rows, '2024-06-01'), 'before any row');
+        self::assertSame('9', VisitSource::primaryInForce([['provider' => '9', 'date' => null, 'date_end' => null]], '2026-05-01'), 'an undated row');
+        self::assertNull(VisitSource::primaryInForce([['provider' => '0', 'date' => null, 'date_end' => null]], '2026-05-01'));
+    }
+
+    public function testTheProviderNumberTypeTakesThePayersRowFirst(): void
+    {
+        $rows = [['insurance_company_id' => null, 'provider_number_type' => '0B'], ['insurance_company_id' => 12, 'provider_number_type' => '1C']];
+        self::assertSame('1C', VisitSource::providerNumberType($rows, '12'));
+        self::assertSame('0B', VisitSource::providerNumberType($rows, '13'), 'the row with no company otherwise');
+        self::assertSame('', VisitSource::providerNumberType([], '12'));
+    }
+    /**
+     * A visit with a line gets the referrer its claim would carry: box 17's ordering provider (DK) is passed over on
+     * 8.4.0 and later, so the Demographics referrer is taken; before 8.4.0 box 17's provider is, whatever its qualifier.
+     *
+     * @return list<list<array<string, mixed>>>
+     */
+    private static function claimRows(): array
+    {
+        return [
+            [['id' => 1, 'encounter' => 501, 'pid' => 7, 'date' => '2026-10-01 09:00:00', 'pc_catid' => 5, 'sensitivity' => '',
+              'facility_id' => 3, 'provider_id' => 4, 'referring_provider_id' => 0, 'claimed' => 0, 'documented' => 1]],
+            [['id' => 9, 'encounter' => 501, 'code_type' => 'CPT4', 'code' => '99213', 'modifier' => '', 'units' => 1, 'fee' => 100, 'justify' => '', 'ndc_info' => '']],
+            [],
+            [],
+            [['pid' => 7, 'ref_providerID' => 41]],
+            [['encounter' => 501, 'provider_id' => 5, 'provider_qualifier_code' => 'DK']],
+            [['pid' => 7, 'provider' => '12', 'date' => '2026-01-01', 'date_end' => null]],
+        ];
+    }
+
+    public function testAVisitWithALineGetsItsClaimsReferrerAndPayer(): void
+    {
+        $GLOBALS['openemr_version'] = '8.4.1';
+        QueryUtils::$results = [...self::claimRows(), [['id' => 41, 'fname' => 'Ann', 'lname' => 'Lee', 'npi' => '']]];
+        $v = (new VisitSource())->visits('2026-10-01', '2026-10-02', null, [])[0];
+        $this->assertTrue($v->insured);
+        $this->assertNotNull($v->referrer);
+        $this->assertSame([41, 'patient', 'Ann Lee'], [$v->referrer->userId, $v->referrer->source, $v->referrer->name]);
+        $this->assertTrue($v->referrer->npiMissing());
+        $this->assertSame([41], end(QueryUtils::$calls)['binds'], 'the users row of the chosen referrer');
+
+        QueryUtils::$calls = [];
+        $GLOBALS['openemr_version'] = '8.3.0';
+        QueryUtils::$results = [...self::claimRows(), [['id' => 5, 'fname' => 'Bo', 'lname' => 'Ray', 'npi' => '1234567893']]];
+        $v = (new VisitSource())->visits('2026-10-01', '2026-10-02', null, [])[0];
+        $this->assertSame([5, 'box17'], [$v->referrer?->userId, $v->referrer?->source], 'before 8.4.0 box 17 wins');
+        $this->assertFalse($v->referrer?->npiMissing());
+    }
+
+    public function testTheRenderingProviderAsMedicareReferrerLeavesTheReferrerOut(): void
+    {
+        $GLOBALS['openemr_version'] = '8.4.1';
+        $GLOBALS['MedicareReferrerIsRenderer'] = '1';
+        $rows = self::claimRows();
+        $rows[5] = []; // no box 17
+        QueryUtils::$results = [...$rows, [['provider_id' => 4, 'insurance_company_id' => 12, 'provider_number_type' => '1C']]];
+        $v = (new VisitSource())->visits('2026-10-01', '2026-10-02', null, [])[0];
+        $this->assertTrue($v->insured);
+        $this->assertNull($v->referrer, 'the rendering provider is sent instead');
     }
 }
