@@ -33,6 +33,11 @@ $classLoader->registerNamespaceIfNotExists('OpenHealthcare\\RevenueCycle\\', __D
 $common = __DIR__ . '/vendor/anun333/openhealthcare-common/src';
 if (is_dir($common)) {
     $classLoader->registerNamespaceIfNotExists('OpenHealthcare\\Common\\', $common);
+    // The shared contracts (1.5.0) come from the first copy that has them, so they're there even where a module
+    // copied in by hand registered an older copy first: Composer looks under the longer prefix before the shorter.
+    if (is_dir($common . '/Contract')) {
+        $classLoader->registerNamespaceIfNotExists('OpenHealthcare\\Common\\Contract\\', $common . '/Contract');
+    }
 }
 if (!class_exists(OpenEmr::class)) {
     return;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7 (unreleased)
+
+- **The Staff Worklist tab is built on openhealthcare-common's shared contract** (1.5.0), so it loads without the Worklist's classes and has unit tests of its own. Staff see the same "Charges to check" tab with the same rows, on any Worklist from 0.8.0. The bootstrap also registers the library's contracts under their own prefix, so they load where a module copied in by hand carries an older copy that registered first; if no copy with the contracts is there at all, the tab is left out rather than stop the page.
+- Requires openhealthcare-common 1.5.0.
+- **Known, unchanged:** the look-back still reads the Worklist's `staff_worklist_state` for dismissals; the shared contracts don't cover that yet.
+- **Checked:** unit tests on PHP 8.2 and 8.5 (57; 3 new: an appointment seen with no visit becomes an item keyed by the flag's ref; nothing to check reads no patients; the tab reaches a Worklist through the contract). `dev/revenue_cycle_check.py` on OpenEMR 8.4.1 with Worklist 0.9.0, and on master with Worklist 0.8.7: each patient's findings exactly, nothing for the clean ones; all passed.
+
 ## 0.1.6 (2026-10-26)
 
 - **The vaccine list's fields have names a screen reader can read.** Each row's CVX code, code type and product code field is named with its column and row ("CVX code, row 2"), and the table's headers are marked as column headers. They had none, so a screen reader announced bare edit fields.

@@ -16,6 +16,8 @@ namespace OpenHealthcare\RevenueCycle;
 
 use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Menu\MenuEvent;
+use OpenHealthcare\Common\Contract\Worklist\Worklist;
+use OpenHealthcare\Common\Contract\Worklist\WorkSource;
 use OpenHealthcare\RevenueCycle\Worklist\ChargesSource;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -36,14 +38,17 @@ final class Bootstrap
         $this->eventDispatcher->addListener('staff_worklist.collect_sources', $this->addWorklistTab(...));
     }
 
-    /** "Charges to check" in the Staff Worklist, for whoever bills (OpenEMR's billing permission), as Care Management's tab is. */
+    /**
+     * "Charges to check" in the Staff Worklist (0.8.0 or later), for whoever bills (OpenEMR's billing permission), as Care
+     * Management's tab is. The tab is built on openhealthcare-common's contract; where a module copied in by hand loaded
+     * an older copy of the library first, the contract isn't there and the tab is left out rather than stop the page.
+     */
     public function addWorklistTab(object $event): void
     {
-        if (!method_exists($event, 'addSource') || !interface_exists('OpenHealthcare\\StaffWorklist\\Source\\WorkSourceInterface')
-            || !AclMain::aclCheckCore('acct', 'bill')) {
+        if (!interface_exists(WorkSource::class) || !AclMain::aclCheckCore('acct', 'bill')) {
             return;
         }
-        $event->addSource(new ChargesSource($event->now), xl('Charges to check'), xl('Biller'));
+        Worklist::contribute($event, new ChargesSource(Worklist::now($event)), xl('Charges to check'), xl('Biller'));
     }
 
     public function addMenuItem(MenuEvent $event): MenuEvent

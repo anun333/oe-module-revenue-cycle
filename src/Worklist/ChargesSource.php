@@ -3,7 +3,8 @@
 /**
  * "Charges to check" in the Staff Worklist: each flag on a visit whose claim hasn't gone out, with the fee sheet a
  * click away. Accepting means fixing the fee sheet, after which the flag clears; dismissing takes a reason, which the
- * Worklist logs. Nothing here changes a claim.
+ * Worklist logs. Nothing here changes a claim. Built on openhealthcare-common's Worklist contract (1.5.0), so it loads
+ * without the Worklist's classes.
  *
  * @package   OpenEMR
  * @link      https://www.open-emr.org
@@ -20,12 +21,12 @@ use OpenEMR\Common\Database\QueryUtils;
 use OpenHealthcare\RevenueCycle\Domain\Flag;
 use OpenHealthcare\RevenueCycle\Labels;
 use OpenHealthcare\RevenueCycle\Review\ChargeReview;
-use OpenHealthcare\StaffWorklist\Model\ItemKey;
-use OpenHealthcare\StaffWorklist\Model\PatientRef;
-use OpenHealthcare\StaffWorklist\Model\WorkItem;
-use OpenHealthcare\StaffWorklist\Source\WorkSourceInterface;
+use OpenHealthcare\Common\Contract\Worklist\ItemKey;
+use OpenHealthcare\Common\Contract\Worklist\PatientRef;
+use OpenHealthcare\Common\Contract\Worklist\WorkItem;
+use OpenHealthcare\Common\Contract\Worklist\WorkSource;
 
-final class ChargesSource implements WorkSourceInterface
+final class ChargesSource implements WorkSource
 {
     public function __construct(private readonly \DateTimeImmutable $now, private readonly ChargeReview $review = new ChargeReview())
     {
