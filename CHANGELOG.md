@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.8 (unreleased)
+## 0.1.8 (2026-10-26)
 
 - **Check 9: a claim whose referring provider has no NPI.** OpenEMR's Demographics lets an authorized user with no NPI be the referring provider; the visit form's list (NPI holders only) then preselects nothing, and the claim falls back to the Demographics choice, so an 837 or HCFA-1500 goes out with the referrer's name and no NPI, which Medicare requires (core issue #14858; the only sign until now was a line in the X12 log). The check picks the referrer as core's claim does: Misc Billing Options box 17 (on 8.4.0 and later only with qualifier blank or DN), then the visit's referring provider, then Demographics, and leaves it alone when the site sends the rendering provider as the Medicare referrer. Only a visit with a charge and a primary insurance in force on its date is checked. The item names the provider and where the claim takes it from, under "Claim quality".
 - **Install note:** restart the container after adding, upgrading or removing a module copied in by hand (OpenEMR's official 8.0.0 to 8.5.0 images keep class locations, and classes not found, in APCu).
